@@ -1,0 +1,43 @@
+# Orbit configuration (no secrets here - secrets live in .env)
+
+providers:
+  openai:
+    base_url: https://api.openai.com/v1
+    api_key_env: OPENAI_API_KEY
+  # Any OpenAI-compatible endpoint works the same way, e.g.:
+  # deepseek:
+  #   base_url: https://api.deepseek.com/v1
+  #   api_key_env: DEEPSEEK_API_KEY
+  # ollama:
+  #   base_url: http://127.0.0.1:11434/v1
+  #   api_key_env: OLLAMA_API_KEY   # any non-empty value
+
+# Code only ever asks for a *task*; this table decides which model serves it.
+tasks:
+  chat:      { provider: openai, model: gpt-5 }
+  fast:      { provider: openai, model: gpt-5-mini }
+  summarize: { provider: openai, model: gpt-5-mini }
+  code:      { provider: openai, model: gpt-5 }
+  briefing:  { provider: openai, model: gpt-5 }
+  # Extra request params are passed straight to the API, e.g.
+  # chat: { provider: openai, model: gpt-5, params: { reasoning_effort: low } }
+
+agent:
+  name: Orbit
+  history_turns: 20        # recent messages kept in context per session
+  max_tool_rounds: 8       # tool-call loop guard
+
+api:
+  host: 127.0.0.1
+  port: 8765
+
+telegram:
+  enabled: true            # set false to run CLI-only
+
+jobs:
+  briefing:
+    enabled: true
+    cron: "0 8 * * *"      # every day 08:00 local time
+  startup_notice: true     # push "Orbit online" to Telegram on start
+
+watchers: []               # e.g. - { type: gmail, interval_minutes: 5 } (phase 2)

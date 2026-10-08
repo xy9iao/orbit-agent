@@ -1,0 +1,38 @@
+[project]
+name = "orbit"
+version = "0.1.0"
+description = "Orbit - an always-on personal AI agent (Telegram + CLI, OpenAI-compatible model router, proactive reminders and briefings)"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.50",
+    "httpx>=0.27",
+    "python-telegram-bot>=21.0",
+    "fastapi>=0.110",
+    "uvicorn>=0.29",
+    "apscheduler>=3.10,<4",
+    "aiosqlite>=0.20",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+    "pyyaml>=6.0",
+    "typer>=0.12",
+    "loguru>=0.7",
+    "tzlocal>=5.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23"]
+
+[project.scripts]
+orbit = "orbit.cli.main:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["orbit*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]

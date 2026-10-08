@@ -1,0 +1,170 @@
+"""Tool registry: a decorator turns a plain Python function into a model-callable tool.
+
+Schema is generated from the signature + docstring, so adding a tool is just writing a function.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import inspect
+import json
+import re
+import types
+import typing
+from dataclasses import dataclass, field
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
+
+from loguru import logger
+
+if TYPE_CHECKING:
+    from orbit.core.memory import MemoryStore
+    from orbit.scheduler.scheduler import OrbitScheduler
+    from orbit.storage.db import Database
+
+
+@dataclass
+class ToolContext:
+    """What a tool gets to know about the conversation it is called from."""
+
+    channel: str
+    chat_id: str
+    db: "Database"
+    memory: "MemoryStore"
+    scheduler: "OrbitScheduler | None" = None
+    extra: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class Tool:
+    name: str
+    description: str
+    fn: Callable[..., Any]
+    parameters: dict[str, Any]
+    wants_ctx: bool
+
+    def schema(self) -> dict[str, Any]:
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+            },
+        }
+
+
+_TYPE_MAP: dict[Any, str] = {
+    str: "string",
+    int: "integer",
+    float: "number",
+    bool: "boolean",
+    list: "array",
+    dict: "object",
+}
+
+
+def _json_type(annotation: Any) -> dict[str, Any]:
+    if annotation is inspect.Parameter.empty:
+        return {"type": "string"}
+    origin = typing.get_origin(annotation)
+    if origin in (types.UnionType, typing.Union):
+        args = [a for a in typing.get_args(annotation) if a is not type(None)]
+        return _json_type(args[0]) if args else {"type": "string"}
+    if origin in (list, typing.List):
+        inner = typing.get_args(annotation)
+        return {"type": "array", "items": _json_type(inner[0]) if inner else {"type": "string"}}
+    if origin in (dict, typing.Dict):
+        return {"type": "object"}
+    return {"type": _TYPE_MAP.get(annotation, "string")}
+
+
+def _parse_docstring(doc: str | None) -> tuple[str, dict[str, str]]:
+    """First paragraph = description; 'name: text' lines under 'Args:' = param docs."""
+    if not doc:
+        return "", {}
+    lines = [ln.strip() for ln in inspect.cleandoc(doc).splitlines()]
+    desc_lines: list[str] = []
+    params: dict[str, str] = {}
+    in_args = False
+    desc_done = False
+    for ln in lines:
+        if ln.lower().rstrip(":") in ("args", "arguments", "params", "parameters"):
+            in_args = True
+            continue
+        if in_args:
+            m = re.match(r"^(\w+)\s*(?:\([^)]*\))?\s*:\s*(.+)$", ln)
+            if m:
+                params[m.group(1)] = m.group(2)
+            continue
+        if ln == "" and desc_lines:
+            desc_done = True  # first paragraph only
+        elif ln and not desc_done:
+            desc_lines.append(ln)
+    return " ".join(desc_lines), params
+
+
+class ToolRegistry:
+    def __init__(self) -> None:
+        self._tools: dict[str, Tool] = {}
+
+    def register(self, fn: Callable[..., Any], name: str | None = None) -> Tool:
+        sig = inspect.signature(fn)
+        hints = typing.get_type_hints(fn)
+        description, param_docs = _parse_docstring(fn.__doc__)
+        props: dict[str, Any] = {}
+        required: list[str] = []
+        wants_ctx = False
+        for pname, param in sig.parameters.items():
+            if pname == "ctx":
+                wants_ctx = True
+                continue
+            schema = _json_type(hints.get(pname, param.annotation))
+            if pname in param_docs:
+                schema["description"] = param_docs[pname]
+            props[pname] = schema
+            if param.default is inspect.Parameter.empty:
+                required.append(pname)
+        tool = Tool(
+            name=name or fn.__name__,
+            description=description,
+            fn=fn,
+            parameters={"type": "object", "properties": props, "required": required},
+            wants_ctx=wants_ctx,
+        )
+        self._tools[tool.name] = tool
+        return tool
+
+    def tool(self, fn: Callable[..., Any]) -> Callable[..., Any]:
+        """Decorator form: @tool above a function registers it."""
+        self.register(fn)
+        return fn
+
+    def names(self) -> list[str]:
+        return list(self._tools)
+
+    def schemas(self) -> list[dict[str, Any]]:
+        return [t.schema() for t in self._tools.values()]
+
+    async def call(self, name: str, arguments: dict[str, Any], ctx: ToolContext) -> str:
+        tool = self._tools.get(name)
+        if tool is None:
+            return f"error: unknown tool '{name}'"
+        kwargs = dict(arguments)
+        if tool.wants_ctx:
+            kwargs["ctx"] = ctx
+        try:
+            result = tool.fn(**kwargs)
+            if inspect.isawaitable(result):
+                result = await result
+        except Exception as e:  # tools must never crash the agent loop
+            logger.exception("tool {} failed", name)
+            return f"error: {type(e).__name__}: {e}"
+        if isinstance(result, str):
+            return result
+        return json.dumps(result, ensure_ascii=False, default=str)
+
+
+registry = ToolRegistry()
+tool = registry.tool
+
+__all__ = ["ToolContext", "ToolRegistry", "Tool", "registry", "tool", "Awaitable", "asyncio"]
