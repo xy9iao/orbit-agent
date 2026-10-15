@@ -19,6 +19,9 @@ tasks:
   summarize: { provider: openai, model: gpt-5-mini }
   code:      { provider: openai, model: gpt-5 }
   briefing:  { provider: openai, model: gpt-5 }
+  # Vectors are stored as vector(1536): changing this model or its dimension
+  # needs a new Alembic migration and a re-embed of every posting and profile.
+  embed:     { provider: openai, model: text-embedding-3-small }
   # Extra request params are passed straight to the API, e.g.
   # chat: { provider: openai, model: gpt-5, params: { reasoning_effort: low } }
 

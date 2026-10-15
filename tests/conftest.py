@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import math
 import os
+import random
 from pathlib import Path
 from typing import Any
 
@@ -13,7 +16,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from orbit.config import AgentConfig, Config, ProviderConfig, TaskConfig
 from orbit.core.memory import MemoryStore
-from orbit.core.providers.base import Response, ToolCall
+from orbit.core.providers.base import EmbedResponse, Response, ToolCall
 from orbit.storage.db import Database
 from orbit.storage.migrate import upgrade_head
 from orbit.storage.models import Base
@@ -21,19 +24,34 @@ from orbit.storage.models import Base
 ROOT = Path(__file__).resolve().parent.parent
 
 
+def fake_embedding(text: str, dim: int = 1536) -> list[float]:
+    """Deterministic unit vector seeded by sha256(text): same text, same vector; different text, different."""
+    rng = random.Random(int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest(), "big"))
+    vec = [rng.gauss(0.0, 1.0) for _ in range(dim)]
+    norm = math.sqrt(sum(x * x for x in vec))
+    return [x / norm for x in vec]
+
+
 class FakeProvider:
     """Returns scripted responses in order; records what it was asked."""
 
-    def __init__(self, name: str, responses: list[Response] | None = None):
+    def __init__(self, name: str, responses: list[Response] | None = None, embed_dim: int = 1536):
         self.name = name
         self.responses = list(responses or [])
         self.calls: list[dict[str, Any]] = []
+        self.embed_dim = embed_dim
+        self.embed_calls: list[dict[str, Any]] = []
 
     async def complete(self, model, messages, tools=None, **params):
         self.calls.append({"model": model, "messages": messages, "tools": tools, "params": params})
         if self.responses:
             return self.responses.pop(0)
         return Response(text="ok", usage={"prompt_tokens": 1, "completion_tokens": 1})
+
+    async def embed(self, model, texts, **params):
+        self.embed_calls.append({"model": model, "texts": list(texts), "params": params})
+        vectors = [fake_embedding(t, self.embed_dim) for t in texts]
+        return EmbedResponse(vectors=vectors, usage={"prompt_tokens": len(texts), "completion_tokens": 0})
 
 
 def make_config() -> Config:
@@ -42,6 +60,7 @@ def make_config() -> Config:
         tasks={
             "chat": TaskConfig(provider="openai", model="big"),
             "fast": TaskConfig(provider="cheap", model="small", params={"temperature": 0}),
+            "embed": TaskConfig(provider="cheap", model="embed-small"),
         },
         agent=AgentConfig(history_turns=10, max_tool_rounds=4),
     )
