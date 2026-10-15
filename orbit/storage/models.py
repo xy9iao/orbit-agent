@@ -5,7 +5,21 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import BigInteger, DateTime, Index, Integer, MetaData, String, Text
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Double,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -25,6 +39,19 @@ class Base(DeclarativeBase):
 
 # Timestamps are naive local time (`timestamp without time zone`), matching the
 # ISO strings the rest of Orbit has always used.
+
+# OpenAI text-embedding-3-small (PLAN.md Decisions). Changing it needs a migration and a re-embed.
+EMBEDDING_DIM = 1536
+
+
+def _now() -> datetime:
+    """Python-side default for radar timestamps: naive local time, like orbit.storage.db."""
+    return datetime.now().replace(microsecond=0)
+
+
+def _in(column: str, values: tuple[str, ...]) -> str:
+    """SQL for a CHECK constraint on a small string enum."""
+    return f"{column} IN ({', '.join(repr(v) for v in values)})"
 
 
 class Message(Base):
@@ -70,3 +97,128 @@ class KV(Base):
 
     key: Mapped[str] = mapped_column(String(200), primary_key=True)
     value: Mapped[Any] = mapped_column(JSONB)
+
+
+# --- Internship Radar ----------------------------------------------------------------------------
+
+RADAR_SOURCES = ("greenhouse", "lever", "ashby")
+POSTING_STATUSES = ("open", "closed")
+EXTRACTION_STATUSES = ("pending", "ok", "failed", "skipped")
+NOTIFICATION_STATUSES = ("pending", "sent", "failed")
+PROFILE_KINDS = ("resume", "goal")
+
+
+class Company(Base):
+    """A company board we poll: one board token on one public job-board API."""
+
+    __tablename__ = "radar_companies"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    slug: Mapped[str] = mapped_column(String(100), unique=True)
+    name: Mapped[str] = mapped_column(String(200))
+    source: Mapped[str] = mapped_column(String(20))
+    board_token: Mapped[str] = mapped_column(String(200))
+    hq_city: Mapped[str | None] = mapped_column(String(100))
+    active: Mapped[bool] = mapped_column(Boolean, server_default="true")
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime)
+    last_verify_status: Mapped[str | None] = mapped_column(String(50))
+    last_verify_error: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    __table_args__ = (CheckConstraint(_in("source", RADAR_SOURCES), name="source"),)
+
+
+class Posting(Base):
+    """One job posting, deduplicated on (source, external_id), plus its pipeline state."""
+
+    __tablename__ = "radar_postings"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    source: Mapped[str] = mapped_column(String(20))
+    external_id: Mapped[str] = mapped_column(String(200))
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("radar_companies.id", ondelete="CASCADE"))
+    title: Mapped[str] = mapped_column(Text)
+    url: Mapped[str] = mapped_column(Text)
+    location_raw: Mapped[str] = mapped_column(Text)
+    department: Mapped[str | None] = mapped_column(Text)
+    description_text: Mapped[str] = mapped_column(Text)
+    raw: Mapped[Any] = mapped_column(JSONB)
+    content_hash: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(20), server_default="open")
+    first_seen_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    extraction: Mapped[Any | None] = mapped_column(JSONB)
+    extraction_status: Mapped[str] = mapped_column(String(20), server_default="pending")
+    extraction_error: Mapped[str | None] = mapped_column(Text)
+    extraction_model: Mapped[str | None] = mapped_column(String(100))
+    extracted_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    # No ANN index: a few thousand rows, so exact (sequential) cosine search is fast enough.
+    embedding: Mapped[Any | None] = mapped_column(Vector(EMBEDDING_DIM))
+    embedded_hash: Mapped[str | None] = mapped_column(String(64))
+    score: Mapped[float | None] = mapped_column(Double)
+    scored_at: Mapped[datetime | None] = mapped_column(DateTime)
+
+    __table_args__ = (
+        UniqueConstraint("source", "external_id", name="uq_radar_postings_source_external_id"),
+        CheckConstraint(_in("source", RADAR_SOURCES), name="source"),
+        CheckConstraint(_in("status", POSTING_STATUSES), name="status"),
+        CheckConstraint(_in("extraction_status", EXTRACTION_STATUSES), name="extraction_status"),
+        Index("ix_radar_postings_company_id_status", "company_id", "status"),
+        Index("ix_radar_postings_status_extraction_status", "status", "extraction_status"),
+        Index("ix_radar_postings_status_score", "status", "score"),
+    )
+
+
+class Notification(Base):
+    """At most one per posting (UNIQUE posting_id): the "never notify twice" guarantee."""
+
+    __tablename__ = "radar_notifications"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    posting_id: Mapped[int] = mapped_column(
+        BigInteger, ForeignKey("radar_postings.id", ondelete="CASCADE"), unique=True
+    )
+    score: Mapped[float] = mapped_column(Double)
+    status: Mapped[str] = mapped_column(String(20), server_default="pending")
+    attempts: Mapped[int] = mapped_column(Integer, server_default="0")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime)
+    error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (CheckConstraint(_in("status", NOTIFICATION_STATUSES), name="status"),)
+
+
+class Profile(Base):
+    """The resume and the free-text goal, each re-embedded only when text_hash changes."""
+
+    __tablename__ = "radar_profile"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    kind: Mapped[str] = mapped_column(String(20), unique=True)
+    text: Mapped[str] = mapped_column(Text)
+    text_hash: Mapped[str] = mapped_column(String(64))
+    embedding: Mapped[Any | None] = mapped_column(Vector(EMBEDDING_DIM))
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    __table_args__ = (CheckConstraint(_in("kind", PROFILE_KINDS), name="kind"),)
+
+
+class Run(Base):
+    """One poll of one company: what came back and whether it worked (drives uptime stats)."""
+
+    __tablename__ = "radar_runs"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    company_id: Mapped[int] = mapped_column(BigInteger, ForeignKey("radar_companies.id", ondelete="CASCADE"))
+    started_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime)
+    ok: Mapped[bool | None] = mapped_column(Boolean)
+    fetched: Mapped[int] = mapped_column(Integer, server_default="0")
+    new: Mapped[int] = mapped_column(Integer, server_default="0")
+    closed: Mapped[int] = mapped_column(Integer, server_default="0")
+    error: Mapped[str | None] = mapped_column(Text)
+
+    __table_args__ = (Index("ix_radar_runs_company_id_started_at", "company_id", "started_at"),)
