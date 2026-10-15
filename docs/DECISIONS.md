@@ -29,3 +29,18 @@
 - **Chose:** `DATABASE_URL` and `TEST_DATABASE_URL` both set at job level to the service DB `orbit_test`; an explicit `alembic upgrade head` step before pytest; a 15-minute job timeout; a 10×5s service health check.
 - **Why:** the separate migration step gives a clear "migration failed" signal on a clean database before any test runs (the fixture's own upgrade is then a no-op). Without `DATABASE_URL`, Alembic would fall back to the `orbit` DB, which doesn't exist in CI, so it fails loudly instead of migrating the wrong place.
 - **When it fails:** a red run blocks the merge. `docker compose config -q` passes today only because compose needs no `.env`. **M1.8 must keep that true** (`env_file` with `required: false`), or CI must create an empty `.env` first.
+
+## Router embeddings details (M5.1)
+- **Chose:** `ModelRouter.embed` uses the same `resolve()` as `complete` (an unknown task falls back to `chat`), never splits batches, and raises `RuntimeError` if the provider returns a different number of vectors than texts. `FakeProvider` records embed calls in a separate `embed_calls` list.
+- **Why:** one resolution path keeps "code names a task, config picks the model". Callers (M5.3) store vectors by position, so a short response must never silently attach vectors to the wrong posting. Keeping chat and embed calls apart means existing tests that index `calls[0]` are unaffected.
+- **When it fails:** a mistyped task name sends the embeddings request to the chat model and the API rejects it; the error surfaces to the caller. On a count mismatch the whole batch fails with no writes and no usage recorded, and the pipeline leaves those postings un-embedded (`embedded_hash != content_hash`) so the next poll retries them.
+
+## /health semantics (M1.7)
+- **Chose:** `OrbitApp.db_health()` pings with a 2 s `asyncio.wait_for` timeout and never raises; `/health` returns HTTP 503 with `status: "degraded"` and a short `"<ExceptionType>: <first line>"` error (≤200 chars) when the DB is down. `/status` gains `"db"` but still needs the DB for its other fields.
+- **Why:** the Docker healthcheck and `curl -f` act on the status code, so `/health` must answer even when Postgres hangs, without leaking tracebacks.
+- **When it fails:** a DB slower than 2 s reports as degraded (`TimeoutError`). On Windows a refused localhost connection takes about 2 s, so it can also show as a timeout. `/status` returns 500 while the DB is down, as it did before; use `/health` for liveness.
+
+## SQLite → Postgres copy semantics (M1.6)
+- **Chose:** rows whose id (or kv key) already exists in Postgres are skipped, not overwritten; all four tables and the sequence bumps are copied in one transaction, after reading the whole SQLite file; invalid JSON in kv aborts the run.
+- **Why:** re-runs are safe and never clobber data Orbit wrote after the switch, and a partial copy is impossible.
+- **When it fails:** if Postgres already holds unrelated rows with the same ids, those SQLite rows are skipped; the first run's "skipped" count shows it, so migrate into an empty DB. One bad row aborts the whole run with the error and writes nothing; fix the row and re-run.
