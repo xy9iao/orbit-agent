@@ -15,7 +15,8 @@ import httpx
 import pytest
 
 from orbit.radar.models import NormalizedPosting
-from orbit.radar.sources import SourceAdapter, get_adapter
+from orbit.radar.sources import SourceAdapter, available_sources, get_adapter
+from orbit.radar.sources.ashby import AshbyAdapter
 from orbit.radar.sources.greenhouse import GreenhouseAdapter
 from orbit.radar.sources.http import USER_AGENT, PoliteClient, SourceFetchError, parse_retry_after
 from orbit.radar.sources.lever import LeverAdapter
@@ -161,6 +162,9 @@ def test_get_adapter_registry():
     assert isinstance(adapter, SourceAdapter)
     assert isinstance(get_adapter("lever"), LeverAdapter)
     assert isinstance(get_adapter("lever"), SourceAdapter)
+    assert isinstance(get_adapter("ashby"), AshbyAdapter)
+    assert isinstance(get_adapter("ashby"), SourceAdapter)
+    assert available_sources() == ["ashby", "greenhouse", "lever"]
     with pytest.raises(ValueError, match="unknown radar source"):
         get_adapter("workday")
 
@@ -303,6 +307,134 @@ async def test_lever_empty_board_and_bad_shapes():
     async with make_client(not_found) as client:
         with pytest.raises(SourceFetchError) as err:
             await LeverAdapter().fetch(client, FakeCompany(slug="nope", board_token="nope"))
+    assert err.value.status_code == 404 and len(calls) == 1
+
+
+# --- Ashby adapter --------------------------------------------------------------------------------
+
+ASHBY_FIXTURE = FIXTURES / "ashby_cohere.json"
+
+
+def load_ashby() -> dict:
+    return json.loads(ASHBY_FIXTURE.read_text(encoding="utf-8"))
+
+
+def ashby_handler(payload, seen: list[httpx.Request] | None = None, *, board="cohere"):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if seen is not None:
+            seen.append(request)
+        assert request.url.host == "api.ashbyhq.com"
+        assert request.url.path == f"/posting-api/job-board/{board}"
+        assert request.url.params.get("includeCompensation") == "false"
+        return httpx.Response(200, json=payload)
+
+    return handler
+
+
+async def test_ashby_parses_recorded_fixture():
+    payload = load_ashby()
+    seen: list[httpx.Request] = []
+    async with make_client(ashby_handler(payload, seen)) as client:
+        postings = await AshbyAdapter().fetch(client, FakeCompany(slug="cohere", board_token="cohere"))
+
+    jobs = payload["jobs"]
+    assert len(seen) == 1
+    assert len(postings) == len(jobs) == 5
+    for posting, job in zip(postings, jobs, strict=True):
+        assert posting.source == "ashby"
+        assert posting.company_slug == "cohere"
+        assert isinstance(posting.external_id, str) and posting.external_id == job["id"]
+        assert posting.title == job["title"].strip()
+        assert posting.url == job["jobUrl"] and posting.url.startswith("https://jobs.ashbyhq.com/")
+        assert posting.department == job["department"]
+        assert posting.raw == job
+        # Primary + secondary locations joined by "; ", then the remote flag.
+        assert job["isRemote"] is True
+        names = [job["location"], *(s["location"] for s in job["secondaryLocations"])]
+        assert posting.location_raw == "; ".join(names) + " (Remote)"
+        text = posting.description_text
+        assert len(text) > 200
+        assert not TAG_RE.search(text) and not ENTITY_RE.search(text)
+        assert "\n" in text
+        expected = datetime.fromisoformat(job["publishedAt"]).astimezone().replace(tzinfo=None, microsecond=0)
+        assert posting.posted_at == expected and posting.posted_at.tzinfo is None
+        assert posting.updated_at is None
+
+    assert len({p.external_id for p in postings}) == len(postings)
+    assert sum("intern" in p.title.lower() for p in postings) >= 3
+    assert any(len(job["secondaryLocations"]) >= 3 for job in jobs)
+
+
+async def test_ashby_skips_unlisted_jobs():
+    payload = load_ashby()
+    payload["jobs"][1]["isListed"] = False
+    del payload["jobs"][2]["isListed"]  # missing flag: treated as listed
+    async with make_client(ashby_handler(payload)) as client:
+        postings = await AshbyAdapter().fetch(client, FakeCompany(slug="cohere", board_token="cohere"))
+    ids = [p.external_id for p in postings]
+    assert len(ids) == 4
+    assert payload["jobs"][1]["id"] not in ids and payload["jobs"][2]["id"] in ids
+
+
+def test_ashby_normalize_variants():
+    job = {
+        "id": "d1",
+        "title": " Data Engineering Co-op ",
+        "jobUrl": "https://jobs.ashbyhq.com/acme/d1",
+        "location": "Toronto, ON",
+        "secondaryLocations": [{"location": "Waterloo, ON"}, {"location": "Toronto, ON"}, {"address": {}}, "junk"],
+        "department": None,
+        "team": "Data",
+        "isRemote": False,
+        "workplaceType": "Hybrid",
+        "publishedAt": "2026-09-01T12:00:00.000Z",
+        "descriptionHtml": "<h2>About</h2><p>SQL &amp; Python</p><ul><li>dbt</li></ul>",
+        "isListed": True,
+    }
+    posting = AshbyAdapter().normalize(job, "acme")
+    assert posting.title == "Data Engineering Co-op"
+    assert posting.department == "Data"  # no department: falls back to team
+    assert posting.location_raw == "Toronto, ON; Waterloo, ON (Hybrid)"
+    assert posting.description_text == "About\n\nSQL & Python\n\n- dbt"  # no descriptionPlain: HTML fallback
+    assert posting.posted_at == datetime(2026, 9, 1, 12, tzinfo=UTC).astimezone().replace(tzinfo=None)
+
+    job.update(workplaceType="OnSite", secondaryLocations=None, descriptionPlain="Plain text wins.")
+    posting = AshbyAdapter().normalize(job, "acme")
+    assert posting.location_raw == "Toronto, ON"
+    assert posting.description_text == "Plain text wins."
+
+    bare_job = {"id": 7, "isRemote": True, "applyUrl": "https://jobs.ashbyhq.com/acme/7/application"}
+    bare = AshbyAdapter().normalize(bare_job, "acme")
+    assert bare.external_id == "7" and bare.url.endswith("/application")
+    assert bare.location_raw == "Remote" and bare.department is None
+    assert bare.description_text == "" and bare.posted_at is None and bare.title == ""
+
+
+def test_ashby_board_request():
+    assert AshbyAdapter().board_request("cohere") == (
+        "https://api.ashbyhq.com/posting-api/job-board/cohere",
+        {"includeCompensation": "false"},
+    )
+    assert AshbyAdapter().board_request("a b")[0].endswith("/job-board/a%20b")
+
+
+async def test_ashby_empty_board_and_bad_shapes():
+    async with make_client(ashby_handler({"apiVersion": "1", "jobs": []})) as client:
+        assert await AshbyAdapter().fetch(client, FakeCompany(slug="cohere", board_token="cohere")) == []
+
+    async with make_client(lambda r: httpx.Response(200, json=[])) as client:
+        with pytest.raises(SourceFetchError, match="'jobs' list"):
+            await AshbyAdapter().fetch(client, FakeCompany(slug="cohere", board_token="cohere"))
+
+    calls = []
+
+    def not_found(request):
+        calls.append(request)
+        return httpx.Response(404, json={"success": False})
+
+    async with make_client(not_found) as client:
+        with pytest.raises(SourceFetchError) as err:
+            await AshbyAdapter().fetch(client, FakeCompany(slug="nope", board_token="nope"))
     assert err.value.status_code == 404 and len(calls) == 1
 
 
