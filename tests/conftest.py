@@ -1,14 +1,24 @@
 from __future__ import annotations
 
+import asyncio
+import os
 from pathlib import Path
 from typing import Any
 
 import pytest
+from dotenv import dotenv_values
+from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from orbit.config import AgentConfig, Config, ProviderConfig, TaskConfig
 from orbit.core.memory import MemoryStore
 from orbit.core.providers.base import Response, ToolCall
 from orbit.storage.db import Database
+from orbit.storage.migrate import upgrade_head
+from orbit.storage.models import Base
+
+ROOT = Path(__file__).resolve().parent.parent
 
 
 class FakeProvider:
@@ -42,10 +52,43 @@ def config() -> Config:
     return make_config()
 
 
+def _test_database_url() -> str:
+    url = os.environ.get("TEST_DATABASE_URL") or dotenv_values(ROOT / ".env").get("TEST_DATABASE_URL")
+    if not url:
+        pytest.fail(
+            "TEST_DATABASE_URL is not set. Start Postgres (docker compose up -d postgres) and set it in the "
+            "environment or .env, e.g. postgresql+asyncpg://orbit:orbit@127.0.0.1:5432/orbit_test",
+            pytrace=False,
+        )
+    # Every test truncates all tables, so never point this at a real database.
+    if "test" not in (make_url(url).database or ""):
+        pytest.fail(f"refusing to run tests against a database without 'test' in its name: {url}", pytrace=False)
+    return url
+
+
+@pytest.fixture(scope="session")
+def database_url() -> str:
+    """Migrate the test database to head once per test session."""
+    url = _test_database_url()
+
+    async def _migrate() -> None:
+        engine = create_async_engine(url)
+        try:
+            await upgrade_head(engine)
+        finally:
+            await engine.dispose()
+
+    asyncio.run(_migrate())
+    return url
+
+
 @pytest.fixture
-async def db(tmp_path: Path):
-    database = Database(tmp_path / "test.db")
+async def db(database_url: str):
+    database = Database(database_url)
     await database.connect()
+    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    async with database.engine.begin() as conn:
+        await conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
     yield database
     await database.close()
 

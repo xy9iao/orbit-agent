@@ -46,7 +46,7 @@ class OrbitApp:
         self.settings = settings or Settings()
         self.config = config or load_config(self.settings.orbit_home / "config.yaml")
         self.started_at = datetime.now()
-        self.db = Database(self.settings.data_dir / "orbit.db")
+        self.db = Database(self.settings.database_url)
         self.memory = MemoryStore(self.settings.memory_dir)
         self.router = ModelRouter.from_config(self.config, self.settings, usage_sink=self._record_usage)
         self.agent = Agent(
@@ -64,6 +64,7 @@ class OrbitApp:
     async def start(self) -> None:
         logger.info("Orbit v{} starting (home={})", __version__, self.settings.orbit_home)
         await self.db.connect()
+        await self.db.migrate()
         self.memory.ensure()
         if not self.router.providers:
             logger.error("no model provider configured - put OPENAI_API_KEY in .env")
