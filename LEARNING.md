@@ -21,3 +21,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why run `alembic upgrade head` as its own step when the tests migrate anyway?** A: It proves the migration chain applies to an empty database and gives a clear, separate failure signal before any test output.
 - **Q: How do service containers reach the job?** A: GitHub starts them on a shared Docker network and maps the declared ports to the runner host, so the job connects to `localhost:5432`. Health-check options make the job wait until Postgres accepts connections.
+
+## Sources (`orbit/radar/sources/`, `scripts/record_fixture.py`)
+1. One adapter per job board (Greenhouse, Lever, Ashby) turns that board's public JSON into a common `NormalizedPosting`; a small registry maps the `source` column to the adapter.
+2. All requests go through `PoliteClient`: a descriptive User-Agent, at most 4 requests in flight, at least 1 s between requests to the same host, and retries with exponential backoff on 429/5xx that honor `Retry-After`.
+3. HTML descriptions are converted to readable text with the stdlib HTML parser, keeping paragraph and bullet breaks, so the LLM and the embeddings see clean text.
+4. `content_hash()` covers only the fields extraction reads (title, location, department, description), so a changed URL or reordered JSON doesn't trigger a re-extraction.
+5. Tests replay real recorded responses (trimmed by `record_fixture.py`, the only code that calls the live APIs) through `httpx.MockTransport`, and an autouse guard fails any test that tries to reach the network.
+
+- **Q: Why honor `Retry-After` and space requests per host instead of just retrying quickly?** A: These are free public APIs. Hammering them risks an IP ban that would take the whole radar down, and polling every 30 minutes has plenty of slack, so politeness costs nothing that matters.
+- **Q: How do you keep fixture tests honest when the real APIs change shape?** A: Fixtures are real recordings, not hand-written guesses, and `verify-sources` runs the adapters live against every seeded board, so drift shows up as a failed company rather than silently passing tests.
