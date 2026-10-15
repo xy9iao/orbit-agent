@@ -18,7 +18,8 @@ from orbit.radar.models import NormalizedPosting
 from orbit.radar.sources import SourceAdapter, get_adapter
 from orbit.radar.sources.greenhouse import GreenhouseAdapter
 from orbit.radar.sources.http import USER_AGENT, PoliteClient, SourceFetchError, parse_retry_after
-from orbit.radar.sources.text import html_to_text
+from orbit.radar.sources.lever import LeverAdapter
+from orbit.radar.sources.text import html_to_text, join_locations, tidy_text
 
 FIXTURES = Path(__file__).resolve().parent.parent / "fixtures" / "radar"
 GREENHOUSE_FIXTURE = FIXTURES / "greenhouse_faire.json"
@@ -158,8 +159,151 @@ def test_get_adapter_registry():
     adapter = get_adapter("greenhouse")
     assert isinstance(adapter, GreenhouseAdapter)
     assert isinstance(adapter, SourceAdapter)
+    assert isinstance(get_adapter("lever"), LeverAdapter)
+    assert isinstance(get_adapter("lever"), SourceAdapter)
     with pytest.raises(ValueError, match="unknown radar source"):
         get_adapter("workday")
+
+
+# --- Lever adapter --------------------------------------------------------------------------------
+
+LEVER_FIXTURE = FIXTURES / "lever_pointclickcare.json"
+TAG_RE = re.compile(r"</?[a-zA-Z][^>]*>")
+ENTITY_RE = re.compile(r"&(lt|gt|amp|quot|nbsp|#\d+);")
+
+
+def load_lever() -> list:
+    return json.loads(LEVER_FIXTURE.read_text(encoding="utf-8"))
+
+
+def lever_handler(payload, seen: list[httpx.Request] | None = None, *, host="api.lever.co", site="pointclickcare"):
+    def handler(request: httpx.Request) -> httpx.Response:
+        if seen is not None:
+            seen.append(request)
+        assert request.url.host == host
+        assert request.url.path == f"/v0/postings/{site}"
+        assert request.url.params.get("mode") == "json"
+        return httpx.Response(200, json=payload)
+
+    return handler
+
+
+async def test_lever_parses_recorded_fixture():
+    payload = load_lever()
+    seen: list[httpx.Request] = []
+    company = FakeCompany(slug="pointclickcare", board_token="pointclickcare")
+    async with make_client(lever_handler(payload, seen)) as client:
+        postings = await LeverAdapter().fetch(client, company)
+
+    assert len(seen) == 1
+    assert len(postings) == len(payload) == 5
+    for posting, job in zip(postings, payload, strict=True):
+        assert posting.source == "lever"
+        assert posting.company_slug == "pointclickcare"
+        assert isinstance(posting.external_id, str) and posting.external_id == job["id"]
+        assert posting.title == job["text"].strip()
+        assert posting.url == job["hostedUrl"] and posting.url.startswith("https://jobs.lever.co/")
+        assert posting.department == job["categories"]["department"]
+        assert posting.raw == job
+        # Every job on this board is workplaceType "remote": "(Remote)" is appended unless already said.
+        location = job["categories"]["location"]
+        assert job["workplaceType"] == "remote"
+        expected = location if "remote" in location.lower() else f"{location} (Remote)"
+        assert posting.location_raw == expected
+        # Plain intro + list headings and bullets + closing, no HTML left over.
+        text = posting.description_text
+        assert len(text) > 200
+        assert not TAG_RE.search(text) and not ENTITY_RE.search(text)
+        assert "\xa0" not in text
+        for item in job["lists"]:
+            assert item["text"].strip() in text
+        if any("<li>" in item["content"] for item in job["lists"]):
+            assert "\n- " in text
+        # createdAt is epoch milliseconds -> naive local time; Lever has no updated timestamp.
+        assert posting.posted_at == datetime.fromtimestamp(job["createdAt"] / 1000).replace(microsecond=0)
+        assert posting.posted_at.tzinfo is None
+        assert posting.updated_at is None
+
+    assert len({p.external_id for p in postings}) == len(postings)
+    assert {p.location_raw for p in postings} >= {"Mississauga (Remote)", "Remote or Mississauga"}
+
+
+def test_lever_normalize_variants():
+    job = {
+        "id": "abc-123",
+        "text": "  Software Developer Co-op (Winter 2027)  ",
+        "hostedUrl": "https://jobs.lever.co/acme/abc-123",
+        "categories": {
+            "team": "Engineering",
+            "location": "Toronto, ON",
+            "allLocations": ["Toronto, ON", "Waterloo, ON", "toronto, on"],
+        },
+        "workplaceType": "hybrid",
+        "createdAt": 1767225600000,  # 2026-01-01T00:00:00Z
+        "description": "<p>Join us &amp; build <b>things</b>.</p>",
+        "lists": [
+            {"text": "What you'll do", "content": "<li>Write Python &lt;3</li><li>Ship &nbsp;fast</li>"},
+            {"text": "", "content": ""},
+            "not-a-dict",
+        ],
+        "additionalPlain": "Equal opportunity.\r\n\r\n\r\n\r\nApply now.",
+    }
+    posting = LeverAdapter().normalize(job, "acme")
+    assert posting.title == "Software Developer Co-op (Winter 2027)"
+    assert posting.department == "Engineering"  # no department: falls back to team
+    assert posting.location_raw == "Toronto, ON; Waterloo, ON (Hybrid)"
+    assert posting.posted_at == datetime.fromtimestamp(1767225600)
+    assert posting.description_text == (
+        "Join us & build things.\n\nWhat you'll do\n- Write Python <3\n- Ship fast\n\nEqual opportunity.\n\nApply now."
+    )
+
+    bare = {"id": "x", "createdAt": "yesterday", "categories": None, "applyUrl": "https://jobs.lever.co/acme/x/apply"}
+    posting = LeverAdapter().normalize(bare, "acme")
+    assert posting.title == "" and posting.url == "https://jobs.lever.co/acme/x/apply"
+    assert posting.location_raw == "" and posting.department is None and posting.description_text == ""
+    assert posting.posted_at is None
+
+    remote_only = LeverAdapter().normalize({"id": "r", "workplaceType": "remote", "categories": {}}, "acme")
+    assert remote_only.location_raw == "Remote"
+
+
+def test_lever_board_request_routes_eu_tokens():
+    adapter = LeverAdapter()
+    assert adapter.board_request("acme") == ("https://api.lever.co/v0/postings/acme", {"mode": "json"})
+    assert adapter.board_request("eu:acme") == ("https://api.eu.lever.co/v0/postings/acme", {"mode": "json"})
+    assert adapter.board_request(" EU:acme ")[0] == "https://api.eu.lever.co/v0/postings/acme"
+    assert adapter.board_request("a/b")[0] == "https://api.lever.co/v0/postings/a%2Fb"
+
+
+async def test_lever_eu_board_fetches_from_eu_host():
+    seen: list[httpx.Request] = []
+    job = copy.deepcopy(load_lever()[0])
+    handler = lever_handler([job], seen, host="api.eu.lever.co", site="acme")
+    async with make_client(handler) as client:
+        postings = await LeverAdapter().fetch(client, FakeCompany(slug="acme", board_token="eu:acme"))
+    assert len(seen) == 1 and [p.external_id for p in postings] == [job["id"]]
+    assert postings[0].company_slug == "acme"
+
+
+async def test_lever_empty_board_and_bad_shapes():
+    async with make_client(lever_handler([])) as client:
+        company = FakeCompany(slug="pointclickcare", board_token="pointclickcare")
+        assert await LeverAdapter().fetch(client, company) == []
+
+    async with make_client(lambda r: httpx.Response(200, json={"ok": False})) as client:
+        with pytest.raises(SourceFetchError, match="expected a list"):
+            await LeverAdapter().fetch(client, FakeCompany(slug="acme", board_token="acme"))
+
+    calls = []
+
+    def not_found(request):
+        calls.append(request)
+        return httpx.Response(404, json={"ok": False, "error": "Document not found"})
+
+    async with make_client(not_found) as client:
+        with pytest.raises(SourceFetchError) as err:
+            await LeverAdapter().fetch(client, FakeCompany(slug="nope", board_token="nope"))
+    assert err.value.status_code == 404 and len(calls) == 1
 
 
 # --- HTML to text ---------------------------------------------------------------------------------
@@ -174,6 +318,22 @@ def test_html_to_text_unescapes_and_keeps_structure():
     assert html_to_text(raw) == "About us\n\nWe build things & ship.\n\n- Python\n- Go\nRust\n\nCafé <3"
     assert html_to_text(None) == ""
     assert html_to_text("") == ""
+    # Plain (not double-escaped) HTML, as Lever and Ashby send it.
+    assert html_to_text("<p>A &amp; B &lt;3</p><ul><li>x</li></ul>", unescape=False) == "A & B <3\n\n- x"
+
+
+def test_tidy_text_and_join_locations():
+    assert tidy_text("  a  b \r\n \n\n\n\nc  ") == "a b\n\nc"
+    assert tidy_text(None) == ""
+    assert join_locations(["Toronto, ON", None, "", "Toronto, ON", "Remote - Canada"], "Remote") == (
+        "Toronto, ON; Remote - Canada"
+    )
+    assert join_locations(["Toronto, ON"], "remote") == "Toronto, ON (Remote)"
+    assert join_locations(["Waterloo, ON"], "Hybrid") == "Waterloo, ON (Hybrid)"
+    assert join_locations(["Waterloo, ON"], "onsite") == "Waterloo, ON"
+    assert join_locations(["Waterloo, ON"], "unspecified") == "Waterloo, ON"
+    assert join_locations([], "remote") == "Remote"
+    assert join_locations([], None) == ""
 
 
 # --- Polite client --------------------------------------------------------------------------------

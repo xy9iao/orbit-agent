@@ -1,7 +1,9 @@
 """HTML-to-text for job descriptions, stdlib only.
 
 Greenhouse returns `content` as HTML that is itself HTML-escaped (`&lt;p&gt;...`), so we unescape
-once, then parse tags, keeping paragraph and list breaks and dropping scripts/styles.
+once, then parse tags, keeping paragraph and list breaks and dropping scripts/styles. Lever and Ashby
+send plain HTML, so they pass `unescape=False`. `join_locations` builds `location_raw` for boards that
+list several locations and a remote/hybrid flag.
 """
 
 from __future__ import annotations
@@ -85,3 +87,34 @@ def html_to_text(value: str | None, *, unescape: bool = True) -> str:
                 continue
         kept.append(line)
     return _MANY_NEWLINES.sub("\n\n", "\n".join(kept)).strip()
+
+
+def tidy_text(value: str | None) -> str:
+    """Whitespace cleanup for text a board already sent as plain text: the same line rules as `html_to_text`
+    (inline whitespace incl. NBSP collapsed, lines stripped, at most one blank line in a row), no tag parsing."""
+    if not value:
+        return ""
+    lines = [_INLINE_WS.sub(" ", line).strip() for line in value.replace("\r\n", "\n").split("\n")]
+    return _MANY_NEWLINES.sub("\n\n", "\n".join(lines)).strip()
+
+
+_WORK_MODES = {"remote": "Remote", "hybrid": "Hybrid"}
+
+
+def join_locations(locations: list[str | None], work_mode: str | None = None) -> str:
+    """One `location_raw` string for boards with several locations and a work mode (Lever, Ashby).
+
+    Distinct non-empty locations in board order joined by "; ", then " (Remote)" or " (Hybrid)" when the
+    board says so and the text doesn't already say it, e.g. "Toronto, ON; Waterloo, ON (Hybrid)".
+    Other modes ("onsite", "unspecified", None) add nothing; with no locations a remote job is just "Remote".
+    """
+    kept: list[str] = []
+    for loc in locations:
+        loc = loc.strip() if isinstance(loc, str) else ""
+        if loc and loc.casefold() not in {k.casefold() for k in kept}:
+            kept.append(loc)
+    text = "; ".join(kept)
+    mode = _WORK_MODES.get(work_mode.strip().casefold()) if isinstance(work_mode, str) else None
+    if mode and mode.casefold() not in text.casefold():
+        text = f"{text} ({mode})" if text else mode
+    return text

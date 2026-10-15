@@ -5,9 +5,11 @@ from __future__ import annotations
 from orbit.radar.sources.base import CompanyLike, SourceAdapter
 from orbit.radar.sources.greenhouse import GreenhouseAdapter
 from orbit.radar.sources.http import PoliteClient, SourceFetchError
+from orbit.radar.sources.lever import LeverAdapter
 
 _ADAPTERS: dict[str, SourceAdapter] = {
     GreenhouseAdapter.source: GreenhouseAdapter(),
+    LeverAdapter.source: LeverAdapter(),
 }
 
 
@@ -25,6 +27,7 @@ def available_sources() -> list[str]:
 __all__ = [
     "CompanyLike",
     "GreenhouseAdapter",
+    "LeverAdapter",
     "PoliteClient",
     "SourceAdapter",
     "SourceFetchError",
