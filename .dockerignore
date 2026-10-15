@@ -1,0 +1,36 @@
+# Keep the build context small and secret-free. The image only needs:
+# pyproject.toml, README.md, orbit/, alembic.ini, config.yaml, persona/.
+.git
+.gitattributes
+.gitignore
+.github
+.claude
+.venv
+venv
+.env
+.env.*
+data
+logs
+memory
+tests
+scripts
+docs
+docker
+deploy
+evals
+# Root-level docs only (PLAN, PROGRESS, ...); persona/*.md is not matched by this pattern.
+*.md
+!README.md
+Dockerfile
+.dockerignore
+docker-compose*.yml
+**/__pycache__
+**/*.py[cod]
+*.egg-info
+build
+dist
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov

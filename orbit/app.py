@@ -72,7 +72,8 @@ class OrbitApp:
         if not self.router.providers:
             logger.error("no model provider configured - put OPENAI_API_KEY in .env")
 
-        self.channels["cli"] = LocalApiChannel(self, self.config.api.host, self.config.api.port)
+        host, port = self.settings.api_bind(self.config.api)
+        self.channels["cli"] = LocalApiChannel(self, host, port)
         if self.config.telegram.enabled:
             if self.settings.telegram_bot_token and self.settings.telegram_owner_chat_id:
                 from orbit.channels.telegram import TelegramChannel

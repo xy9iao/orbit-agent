@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     # Dev default matches docker-compose.yml; override with DATABASE_URL.
     database_url: str = "postgresql+asyncpg://orbit:orbit@127.0.0.1:5432/orbit"
     orbit_home: Path = Field(default_factory=default_home)
+    # Bind-address overrides for the local API (env ORBIT_API_HOST / ORBIT_API_PORT), e.g. 0.0.0.0 in Docker.
+    orbit_api_host: str | None = None
+    orbit_api_port: int | None = None
 
     @property
     def data_dir(self) -> Path:
@@ -45,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def persona_dir(self) -> Path:
         return self.orbit_home / "persona"
+
+    def api_bind(self, api: ApiConfig) -> tuple[str, int]:
+        """Host and port the local API listens on: env overrides first, then config.yaml."""
+        return self.orbit_api_host or api.host, self.orbit_api_port or api.port
 
     def api_key_for(self, env_name: str) -> str | None:
         """Look up a provider key by env var name; OPENAI_API_KEY also comes from .env."""

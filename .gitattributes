@@ -1,0 +1,7 @@
+# This repo is edited on Windows (core.autocrlf=true). Files that run inside Linux containers or
+# are parsed by Linux tools must stay LF in the working tree, or shebangs and entrypoints break.
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+docker/*.sql text eol=lf

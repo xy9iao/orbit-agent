@@ -36,6 +36,10 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 include = ["orbit*"]
 
+# migrations/ has no __init__.py, so a non-editable install (Docker) needs it listed to ship the Alembic scripts.
+[tool.setuptools.package-data]
+"orbit.storage" = ["migrations/*.py", "migrations/*.mako", "migrations/versions/*.py"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
