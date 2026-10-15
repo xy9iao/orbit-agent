@@ -43,4 +43,19 @@ jobs:
     cron: "0 8 * * *"      # every day 08:00 local time
   startup_notice: true     # push "Orbit online" to Telegram on start
 
-watchers: []               # e.g. - { type: gmail, interval_minutes: 5 } (phase 2)
+# Polled in-process by APScheduler. Optional keys per watcher: interval_minutes (default 5) and
+# first_run_delay_seconds (first check that long after startup instead of one full interval later).
+watchers:
+  - { type: internship_radar, interval_minutes: 30, first_run_delay_seconds: 60 }
+
+# Internship Radar preferences (used by the internship_radar watcher and `orbit radar ...`).
+radar:
+  # Work terms you want, as "<Season> <YYYY>". Add "Winter 2027" if your next co-op term is in winter.
+  terms: ["Summer 2027", "Fall 2027"]
+  # A posting passes when an extracted location is listed here, or it is remote and open to Canada.
+  # Formats: "City, XX" (two-letter province/state) or "Remote (Canada)".
+  locations: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
+  notify_threshold: 0.45           # cosine similarity to the resume; placeholder until calibrated (M5.5)
+  resume_path: data/resume.md      # relative to ORBIT_HOME; data/ is git-ignored
+  max_extract_per_poll: 40         # caps LLM extraction cost per 30-minute poll
+  max_notifications_per_poll: 5    # extra matches go into one digest message

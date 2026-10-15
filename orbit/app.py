@@ -18,6 +18,7 @@ from orbit.core.agent import Agent
 from orbit.core.memory import MemoryStore
 from orbit.core.router import ModelRouter
 from orbit.core.tools import registry
+from orbit.radar import watcher as _radar_watcher  # noqa: F401 - registers the internship_radar watcher
 from orbit.scheduler.scheduler import OrbitScheduler
 from orbit.storage.db import Database
 

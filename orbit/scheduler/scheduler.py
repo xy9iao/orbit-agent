@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -48,6 +48,11 @@ class OrbitScheduler:
     async def stop(self) -> None:
         if self.sched.running:
             self.sched.shutdown(wait=False)
+        for watcher in self.watchers:
+            try:
+                await watcher.close()
+            except Exception:
+                logger.exception("error closing watcher {}", watcher.name)
 
     # ---- reminders ---------------------------------------------------------
     def schedule_reminder(self, reminder_id: int, due_at: datetime) -> None:
@@ -87,14 +92,29 @@ class OrbitScheduler:
             logger.warning("unknown watcher type '{}' - skipped", wtype)
             return
         minutes = int(cfg.pop("interval_minutes", 5))
-        watcher = cls(**cfg)
+        # Optional: run the first check this many seconds after startup instead of one full interval later.
+        first_delay = cfg.pop("first_run_delay_seconds", None)
+        try:
+            watcher = cls(**cfg)
+            watcher.bind(self.orbit)
+        except Exception:
+            logger.exception("watcher '{}' could not be set up - skipped", wtype)
+            return
         self.watchers.append(watcher)
+        extra: dict[str, Any] = {}
+        if first_delay is not None:
+            extra["next_run_time"] = datetime.now(get_localzone()) + timedelta(seconds=float(first_delay))
         self.sched.add_job(
             self._poll_watcher,
             IntervalTrigger(minutes=minutes),
             args=[watcher],
             id=f"watcher-{watcher.name}",
             replace_existing=True,
+            # Never two checks of one watcher at once: a run still going when the next is due is skipped,
+            # and runs missed while the loop was busy collapse into one.
+            max_instances=1,
+            coalesce=True,
+            **extra,
         )
 
     async def _poll_watcher(self, watcher: Watcher) -> None:

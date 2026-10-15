@@ -8,6 +8,11 @@ To add a watcher:
 then enable it in config.yaml:
     watchers:
       - { type: rss, url: https://..., interval_minutes: 30 }
+
+Optional lifecycle hooks (default no-ops, so a watcher that only defines `check` keeps working):
+    bind(orbit)  - called once by the scheduler right after construction, with the OrbitApp
+                   (settings, config, router, db), before the first check;
+    close()      - awaited by the scheduler on shutdown to release clients or connections.
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from orbit.app import OrbitApp
     from orbit.storage.db import Database
 
 
@@ -31,6 +37,12 @@ class Watcher:
     """Polled periodically; returns only *new* events. Use db.kv_get/kv_set to remember what was seen."""
 
     name: str = "watcher"
+
+    def bind(self, orbit: OrbitApp) -> None:
+        """Give the watcher the running app. Default: ignore it."""
+
+    async def close(self) -> None:
+        """Release resources on shutdown. Default: nothing to release."""
 
     async def check(self, db: Database) -> list[Event]:
         raise NotImplementedError

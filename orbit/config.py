@@ -99,6 +99,24 @@ class JobsConfig(BaseModel):
     startup_notice: bool = True
 
 
+class RadarConfig(BaseModel):
+    """Internship Radar preferences (config.yaml `radar:`); the watcher itself is enabled under `watchers:`."""
+
+    # Terms in PostingExtraction's "<Season> <YYYY>" form. In October 2026 (3A fall term) Summer 2027 is
+    # the main recruiting cycle and Fall 2027 postings start to appear; most Winter 2027 roles are filled.
+    terms: list[str] = Field(default_factory=lambda: ["Summer 2027", "Fall 2027"])
+    # Canonical extracted locations: "City, XX" (two-letter province) or "Remote (Canada)".
+    locations: list[str] = Field(
+        default_factory=lambda: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
+    )
+    # Cosine-similarity cut-off for a Telegram push. Placeholder until calibrated in M5.5.
+    notify_threshold: float = Field(default=0.45, ge=-1.0, le=1.0)
+    # Relative to ORBIT_HOME; same default as orbit.radar.profile.DEFAULT_RESUME_PATH.
+    resume_path: str = "data/resume.md"
+    max_extract_per_poll: int = Field(default=40, ge=0)
+    max_notifications_per_poll: int = Field(default=5, ge=0)
+
+
 class Config(BaseModel):
     providers: dict[str, ProviderConfig]
     tasks: dict[str, TaskConfig]
@@ -107,6 +125,7 @@ class Config(BaseModel):
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
     jobs: JobsConfig = Field(default_factory=JobsConfig)
     watchers: list[dict[str, Any]] = Field(default_factory=list)
+    radar: RadarConfig = Field(default_factory=RadarConfig)
 
 
 def load_config(path: Path | None = None) -> Config:
