@@ -9,8 +9,10 @@ import httpx
 import typer
 
 from orbit.config import load_config
+from orbit.radar.cli import radar_app
 
 app = typer.Typer(help="Orbit - your always-on personal agent.", no_args_is_help=True)
+app.add_typer(radar_app, name="radar")
 
 
 def _base_url() -> str:
