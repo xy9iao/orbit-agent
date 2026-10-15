@@ -11,7 +11,6 @@ dependencies = [
     "fastapi>=0.110",
     "uvicorn>=0.29",
     "apscheduler>=3.10,<4",
-    "aiosqlite>=0.20",
     "sqlalchemy[asyncio]>=2.0",
     "asyncpg>=0.29",
     "alembic>=1.13",
