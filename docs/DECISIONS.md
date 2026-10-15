@@ -19,3 +19,13 @@
 - **Chose:** tests read `TEST_DATABASE_URL` from the environment or `.env`, fail (not skip) if it is missing, and refuse any URL whose database name does not contain `test`.
 - **Why:** the fixture truncates every table before each test, and one mistyped URL would wipe real conversation history and reminders.
 - **When it fails:** pytest stops immediately with a message that says what to set.
+
+## Parallel tasks: one worktree and one test database each (CLAUDE.md parallelism rule)
+- **Chose:** each parallel subagent works in its own git worktree, runs the main venv's Python with `python -m ...` from the worktree root (so the worktree's `orbit` package is imported before the editable install), and uses a private database `orbit_test_<task>` on the shared Postgres. Agents never edit PROGRESS/QUESTIONS/LEARNING/DECISIONS; the coordinator merges branches one at a time, runs the full suite after each merge, and writes the tracking docs.
+- **Why:** the `db` fixture truncates every table, so two agents on one test DB would corrupt each other's runs. Keeping shared docs coordinator-only removes the main source of merge conflicts.
+- **When it fails:** a worktree created from the wrong base (seen once: worktrees started from `main`) is caught by checking each branch's parent commit before merging. A merge conflict means the branch is rebased onto the new head and its tests are re-run before merging.
+
+## CI details (M1.9)
+- **Chose:** `DATABASE_URL` and `TEST_DATABASE_URL` both set at job level to the service DB `orbit_test`; an explicit `alembic upgrade head` step before pytest; a 15-minute job timeout; a 10×5s service health check.
+- **Why:** the separate migration step gives a clear "migration failed" signal on a clean database before any test runs (the fixture's own upgrade is then a no-op). Without `DATABASE_URL`, Alembic would fall back to the `orbit` DB, which doesn't exist in CI, so it fails loudly instead of migrating the wrong place.
+- **When it fails:** a red run blocks the merge. `docker compose config -q` passes today only because compose needs no `.env`. **M1.8 must keep that true** (`env_file` with `required: false`), or CI must create an empty `.env` first.
