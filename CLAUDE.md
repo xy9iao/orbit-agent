@@ -22,6 +22,7 @@ Orbit's first real vertical. A watcher tracks public job postings from Canadian 
 - Secrets only from environment variables or a git-ignored .env. Tests use fake LLM, embedding and channel clients and recorded API fixtures, never the live network.
 - Keep docs/DECISIONS.md (what we chose, why, what happens when it fails) and LEARNING.md (per module: a 5-line explanation and 2 interview questions with short answers).
 - Small commits with clear messages. Nothing outside PLAN.md.
+- Parallelism: when two or more unchecked tasks have all dependencies done and touch different files, run them in parallel with subagents, each in its own git worktree. Merge them back one at a time and run the full test suite after each merge. Never run two tasks in parallel that both create Alembic migrations or both edit config.yaml.
 
 ## Metrics (`orbit radar stats` prints them)
 Companies tracked, postings stored, extraction accuracy per field, posting-to-notification latency, uptime days.
