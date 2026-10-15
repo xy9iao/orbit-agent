@@ -104,5 +104,5 @@ class Config(BaseModel):
 
 def load_config(path: Path | None = None) -> Config:
     path = path or default_home() / "config.yaml"
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return Config.model_validate(yaml.safe_load(f) or {})

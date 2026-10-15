@@ -25,7 +25,7 @@ class PushRequest(BaseModel):
     text: str
 
 
-def build_api(orbit: "OrbitApp", channel: "LocalApiChannel") -> FastAPI:
+def build_api(orbit: OrbitApp, channel: LocalApiChannel) -> FastAPI:
     api = FastAPI(title="Orbit local API", version="0.1.0")
 
     @api.get("/status")
@@ -77,7 +77,7 @@ def build_api(orbit: "OrbitApp", channel: "LocalApiChannel") -> FastAPI:
 class LocalApiChannel:
     name = "cli"
 
-    def __init__(self, orbit: "OrbitApp", host: str, port: int):
+    def __init__(self, orbit: OrbitApp, host: str, port: int):
         self.orbit = orbit
         self.host = host
         self.port = port
@@ -103,7 +103,7 @@ class LocalApiChannel:
         if self._task:
             try:
                 await asyncio.wait_for(self._task, timeout=5)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
+            except (TimeoutError, asyncio.CancelledError):
                 pass
 
     async def send(self, chat_id: str, text: str) -> bool:

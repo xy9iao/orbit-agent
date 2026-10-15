@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 
 class OrbitScheduler:
-    def __init__(self, orbit: "OrbitApp"):
+    def __init__(self, orbit: OrbitApp):
         self.orbit = orbit
         self.sched = AsyncIOScheduler(timezone=get_localzone())
         self.watchers: list[Watcher] = []

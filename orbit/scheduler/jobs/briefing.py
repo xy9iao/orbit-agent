@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from orbit.app import OrbitApp
 
 
-async def build_briefing_prompt(orbit: "OrbitApp") -> str:
+async def build_briefing_prompt(orbit: OrbitApp) -> str:
     start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
     end = start + timedelta(days=1)
     reminders = await orbit.db.reminders_between(start, end)
@@ -23,7 +23,7 @@ async def build_briefing_prompt(orbit: "OrbitApp") -> str:
     )
 
 
-async def run_briefing(orbit: "OrbitApp") -> str:
+async def run_briefing(orbit: OrbitApp) -> str:
     prompt = await build_briefing_prompt(orbit)
     text = await orbit.agent.generate("briefing", prompt, skill="briefing")
     logger.info("briefing generated ({} chars)", len(text))

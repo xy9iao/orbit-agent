@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from loguru import logger
 
@@ -26,7 +27,7 @@ class ModelRouter:
     @classmethod
     def from_config(
         cls, config: Config, settings: Settings, usage_sink: UsageSink | None = None
-    ) -> "ModelRouter":
+    ) -> ModelRouter:
         providers: dict[str, Provider] = {}
         for name, pc in config.providers.items():
             key = settings.api_key_for(pc.api_key_env)

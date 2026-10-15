@@ -5,7 +5,8 @@ from .registry import ToolContext, tool
 
 @tool
 def remember(ctx: ToolContext, note: str) -> str:
-    """Save a fact about the user to long-term memory (habits, projects, people, preferences, decisions). One concise sentence per call.
+    """Save a fact about the user to long-term memory (habits, projects, people, preferences, decisions).
+    One concise sentence per call.
 
     Args:
         note: The fact to remember, written as a short standalone sentence.

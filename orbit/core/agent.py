@@ -34,7 +34,7 @@ class Agent:
         self.memory = memory
         self.db = db
         self.persona_dir = persona_dir
-        self.scheduler: "OrbitScheduler | None" = None
+        self.scheduler: OrbitScheduler | None = None
 
     # ---- prompt assembly -------------------------------------------------
     def persona(self) -> str:

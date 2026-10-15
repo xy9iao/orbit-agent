@@ -11,8 +11,9 @@ import json
 import re
 import types
 import typing
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -28,9 +29,9 @@ class ToolContext:
 
     channel: str
     chat_id: str
-    db: "Database"
-    memory: "MemoryStore"
-    scheduler: "OrbitScheduler | None" = None
+    db: Database
+    memory: MemoryStore
+    scheduler: OrbitScheduler | None = None
     extra: dict[str, Any] = field(default_factory=dict)
 
 
@@ -70,10 +71,10 @@ def _json_type(annotation: Any) -> dict[str, Any]:
     if origin in (types.UnionType, typing.Union):
         args = [a for a in typing.get_args(annotation) if a is not type(None)]
         return _json_type(args[0]) if args else {"type": "string"}
-    if origin in (list, typing.List):
+    if origin is list:
         inner = typing.get_args(annotation)
         return {"type": "array", "items": _json_type(inner[0]) if inner else {"type": "string"}}
-    if origin in (dict, typing.Dict):
+    if origin is dict:
         return {"type": "object"}
     return {"type": _TYPE_MAP.get(annotation, "string")}
 
