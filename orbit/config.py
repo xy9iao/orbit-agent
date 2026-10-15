@@ -26,6 +26,8 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: int | None = None
     proxy_url: str | None = None
+    # Dev default matches docker-compose.yml; override with DATABASE_URL.
+    database_url: str = "postgresql+asyncpg://orbit:orbit@127.0.0.1:5432/orbit"
     orbit_home: Path = Field(default_factory=default_home)
 
     @property
