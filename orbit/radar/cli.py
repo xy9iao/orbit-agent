@@ -108,3 +108,37 @@ def resume(
     typer.echo(f"resume {action}: {result.chars} chars, sha256 {result.text_hash[:12]} ({resume_path})")
     if result.truncated:
         typer.secho("note: resume is very long; only the first part was embedded (full text stored)", fg="yellow")
+
+
+@radar_app.command()
+def seed(
+    file: Path | None = typer.Option(  # noqa: B008
+        None, "--file", "-f", help="Seeds YAML (default: orbit/radar/seeds.yaml shipped with Orbit)"
+    ),
+    prune: bool = typer.Option(False, "--prune", help="Deactivate DB companies that are no longer in the file"),
+) -> None:
+    """Upsert the seed companies into the DB by slug (never deletes; inactive companies stay inactive)."""
+    from orbit.radar.seed import DEFAULT_SEEDS_PATH, load_seeds, seed_companies
+
+    path = file if file is not None else DEFAULT_SEEDS_PATH
+    try:
+        seeds = load_seeds(path)  # validate before touching the DB
+    except (FileNotFoundError, ValueError) as e:
+        raise _fail(str(e)) from None
+
+    async def _main():
+        async with open_runtime() as rt, rt.db.session() as session:
+            result = await seed_companies(session, seeds, prune=prune)
+            await session.commit()
+            return result
+
+    r = _run(_main())
+    typer.echo(
+        f"seeded {len(seeds)} companies from {path}: {len(r.inserted)} inserted, {len(r.updated)} updated, "
+        f"{len(r.unchanged)} unchanged"
+    )
+    if r.deactivated:
+        typer.secho(f"deactivated (not in file): {', '.join(r.deactivated)}", fg="yellow")
+    kept = [s for s in r.missing if s not in r.deactivated]
+    if kept:
+        typer.secho(f"in the DB but not in the file (left as is; --prune deactivates): {', '.join(kept)}", fg="yellow")

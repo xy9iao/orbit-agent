@@ -1,0 +1,48 @@
+# Internship Radar seed companies: loaded by `orbit radar seed`, checked live by `orbit radar verify-sources`.
+#
+# Every board token below returned HTTP 200 from its public job-board API when probed on 2026-10-15
+# (one GET per candidate, >= 1 s apart per host). Tokens that 404'd were left out rather than guessed.
+# Only the three public, no-login APIs are allowed (CLAUDE.md): greenhouse, lever, ashby.
+#
+# Fields: slug (unique, lowercase), name, source, board_token (Lever EU boards are written `eu:<site>`),
+# hq_city. For companies headquartered outside Canada, hq_city is the city of their Canadian engineering
+# office, since that is where the radar looks; the comment on each line says which case applies.
+# Optional `active: false|true` overrides the DB flag; leave it out to keep whatever the DB says.
+
+companies:
+  # ---- Greenhouse (boards-api.greenhouse.io) ----
+  - {slug: d2l, name: D2L, source: greenhouse, board_token: d2l, hq_city: Kitchener}  # HQ Kitchener
+  - {slug: faire, name: Faire, source: greenhouse, board_token: faire, hq_city: Waterloo}  # HQ San Francisco; major Kitchener-Waterloo engineering office
+  - {slug: geotab, name: Geotab, source: greenhouse, board_token: geotab, hq_city: Oakville}  # HQ Oakville
+  - {slug: hootsuite, name: Hootsuite, source: greenhouse, board_token: hootsuite, hq_city: Vancouver}  # HQ Vancouver
+  - {slug: instacart, name: Instacart, source: greenhouse, board_token: instacart, hq_city: Toronto}  # HQ San Francisco; major Toronto engineering office
+  - {slug: later, name: Later, source: greenhouse, board_token: later, hq_city: Vancouver}  # HQ Vancouver; posts co-op terms
+  - {slug: pinterest, name: Pinterest, source: greenhouse, board_token: pinterest, hq_city: Toronto}  # HQ San Francisco; Toronto engineering office (ML interns)
+  - {slug: stripe, name: Stripe, source: greenhouse, board_token: stripe, hq_city: Toronto}  # HQ San Francisco/Dublin; Toronto engineering office
+  - {slug: tenstorrent, name: Tenstorrent, source: greenhouse, board_token: tenstorrent, hq_city: Toronto}  # founded in Toronto; major Toronto engineering office
+  - {slug: thinkific, name: Thinkific, source: greenhouse, board_token: thinkific, hq_city: Vancouver}  # HQ Vancouver; board was empty when probed
+  - {slug: touchbistro, name: TouchBistro, source: greenhouse, board_token: touchbistro, hq_city: Toronto}  # HQ Toronto; board was empty when probed
+
+  # ---- Lever (api.lever.co) ----
+  - {slug: achievers, name: Achievers, source: lever, board_token: achievers, hq_city: Toronto}  # HQ Toronto
+  - {slug: pointclickcare, name: PointClickCare, source: lever, board_token: pointclickcare, hq_city: Mississauga}  # HQ Mississauga
+  - {slug: tealbook, name: Tealbook, source: lever, board_token: tealbook, hq_city: Toronto}  # HQ Toronto; board was empty when probed
+  - {slug: waabi, name: Waabi, source: lever, board_token: waabi, hq_city: Toronto}  # HQ Toronto; research internships/co-ops
+  - {slug: wattpad, name: Wattpad, source: lever, board_token: wattpad, hq_city: Toronto}  # HQ Toronto
+  - {slug: zensurance, name: Zensurance, source: lever, board_token: zensurance, hq_city: Toronto}  # HQ Toronto
+
+  # ---- Ashby (api.ashbyhq.com) ----
+  - {slug: 1password, name: 1Password, source: ashby, board_token: 1password, hq_city: Toronto}  # HQ Toronto
+  - {slug: benchsci, name: BenchSci, source: ashby, board_token: benchsci, hq_city: Toronto}  # HQ Toronto; board was empty when probed
+  - {slug: clearco, name: Clearco, source: ashby, board_token: clearco, hq_city: Toronto}  # HQ Toronto
+  - {slug: cohere, name: Cohere, source: ashby, board_token: cohere, hq_city: Toronto}  # HQ Toronto
+  - {slug: float, name: Float, source: ashby, board_token: float, hq_city: Toronto}  # HQ Toronto (Float Financial)
+  - {slug: hopper, name: Hopper, source: ashby, board_token: hopper, hq_city: Montreal}  # HQ Montreal
+  - {slug: jane-app, name: Jane App, source: ashby, board_token: jane, hq_city: Vancouver}  # HQ North Vancouver
+  - {slug: klue, name: Klue, source: ashby, board_token: klue, hq_city: Vancouver}  # HQ Vancouver
+  - {slug: koho, name: KOHO, source: ashby, board_token: koho, hq_city: Toronto}  # HQ Toronto
+  - {slug: neo-financial, name: Neo Financial, source: ashby, board_token: neofinancial, hq_city: Calgary}  # HQ Calgary
+  - {slug: procurify, name: Procurify, source: ashby, board_token: procurify, hq_city: Vancouver}  # HQ Vancouver
+  - {slug: rewind, name: Rewind, source: ashby, board_token: rewind, hq_city: Ottawa}  # HQ Ottawa
+  - {slug: trulioo, name: Trulioo, source: ashby, board_token: trulioo, hq_city: Vancouver}  # HQ Vancouver
+  - {slug: wealthsimple, name: Wealthsimple, source: ashby, board_token: wealthsimple, hq_city: Toronto}  # HQ Toronto
