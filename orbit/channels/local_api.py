@@ -7,8 +7,11 @@ from typing import TYPE_CHECKING
 
 import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from loguru import logger
 from pydantic import BaseModel
+
+from orbit import __version__
 
 from .base import Incoming, MessageHandler
 
@@ -27,6 +30,18 @@ class PushRequest(BaseModel):
 
 def build_api(orbit: OrbitApp, channel: LocalApiChannel) -> FastAPI:
     api = FastAPI(title="Orbit local API", version="0.1.0")
+
+    @api.get("/health")
+    async def health() -> JSONResponse:
+        db = await orbit.db_health()
+        ok = db["db"] == "ok"
+        body = {
+            "status": "ok" if ok else "degraded",
+            **db,
+            "version": __version__,
+            "uptime_seconds": orbit.uptime_seconds(),
+        }
+        return JSONResponse(body, status_code=200 if ok else 503)
 
     @api.get("/status")
     async def status() -> dict:
