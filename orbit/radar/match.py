@@ -58,7 +58,7 @@ from orbit.core.router import ModelRouter
 from orbit.radar.extract import describe_error, truncate_description
 from orbit.radar.models import normalize_location, normalize_terms, to_naive_local
 from orbit.storage.db import Database
-from orbit.storage.models import EMBEDDING_DIM, Company, Posting, Profile
+from orbit.storage.models import EMBEDDING_DIM, Company, Notification, Posting, Profile
 
 EMBED_TASK = "embed"
 # ~6k chars is ~1.5k tokens: the opening of a posting (role, team, requirements) carries the signal;
@@ -378,3 +378,90 @@ def describe_score(summary: ScoreSummary) -> str:
     if summary.no_resume:
         return "no resume embedded yet"
     return f"scored {summary.scored}, cleared {summary.cleared}" + (" (resume + goal)" if summary.goal else "")
+
+
+# ---- best matches (M5.5) ----------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class TopMatch:
+    score: float
+    company: str
+    title: str
+    terms: list[str]
+    locations: list[str]
+    url: str
+    notification: str | None  # radar_notifications.status (pending/sent/failed), None if never notified
+
+
+@dataclass(frozen=True)
+class ScoreCounts:
+    scored: int  # open postings with a score
+    above: int  # ...of which score >= threshold
+
+
+async def top_matches(db: Database, limit: int, *, new_only: bool = False) -> list[TopMatch]:
+    """The best open scored postings, best first; `new_only` drops postings that already have a notification."""
+    stmt = (
+        select(Posting.score, Company.name, Posting.title, Posting.extraction, Posting.url, Notification.status)
+        .join(Company, Company.id == Posting.company_id)
+        .outerjoin(Notification, Notification.posting_id == Posting.id)
+        .where(Posting.status == "open", Posting.score.is_not(None))
+        .order_by(Posting.score.desc(), Posting.first_seen_at.desc(), Posting.id.desc())
+        .limit(limit)
+    )
+    if new_only:
+        stmt = stmt.where(Notification.id.is_(None))
+    async with db.session() as s:
+        rows = (await s.execute(stmt)).all()
+    out = []
+    for score, company, title, extraction, url, notification in rows:
+        fields = extraction if isinstance(extraction, dict) else {}
+        terms = [str(t) for t in fields.get("terms") or []]
+        locations = [str(loc) for loc in fields.get("locations") or []]
+        out.append(TopMatch(float(score), company, title, terms, locations, url, notification))
+    return out
+
+
+async def score_counts(db: Database, threshold: float) -> ScoreCounts:
+    stmt = select(
+        func.count(Posting.id),
+        func.count(Posting.id).filter(Posting.score >= threshold),
+    ).where(Posting.status == "open", Posting.score.is_not(None))
+    async with db.session() as s:
+        scored, above = (await s.execute(stmt)).one()
+    return ScoreCounts(int(scored), int(above))
+
+
+async def why_nothing_scored(db: Database) -> str:
+    """A one-line hint naming the first missing step when no open posting has a score."""
+    eligible_extraction = internship_filter()
+    stmt = select(
+        func.count(Posting.id),
+        func.count(Posting.id).filter(Posting.extraction_status == "pending"),
+        func.count(Posting.id).filter(eligible_extraction),
+        func.count(Posting.id).filter(eligible_extraction, Posting.embedded_hash == Posting.content_hash),
+    ).where(Posting.status == "open")
+    async with db.session() as s:
+        open_, pending, internships, embedded = (await s.execute(stmt)).one()
+    profiles = await _embedded_profiles(db)
+    if not open_:
+        return "no open postings yet: run `orbit radar seed`, then `orbit radar poll` (or start the daemon)"
+    if not internships:
+        if pending:
+            return (
+                f"{pending} open postings are not extracted yet: run `orbit radar extract` "
+                "(needs OPENAI_API_KEY)"
+            )
+        return f"none of the {open_} open postings was extracted as an internship"
+    if "resume" not in profiles:
+        return "no resume embedded yet: run `orbit radar resume` (needs OPENAI_API_KEY)"
+    if not embedded:
+        return (
+            f"{internships} internship postings have no current embedding: run `orbit radar embed` "
+            "(needs OPENAI_API_KEY)"
+        )
+    return (
+        f"none of the {embedded} embedded internship postings passes the rule filters: check radar.terms "
+        "and radar.locations in config.yaml"
+    )

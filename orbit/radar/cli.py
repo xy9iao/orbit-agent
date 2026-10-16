@@ -23,6 +23,7 @@ from orbit.core.router import ModelRouter
 from orbit.storage.db import Database
 
 if TYPE_CHECKING:
+    from orbit.radar.match import ScoreCounts, TopMatch
     from orbit.radar.poll import PollableCompany, PollSummary
     from orbit.radar.sources import PoliteClient
 
@@ -400,3 +401,83 @@ def eval_command(
     report, seconds = _run(_main())
     typer.echo(_printable(radar_eval.format_report(report, unverified)))
     typer.echo(f"saved to kv '{radar_eval.KV_LAST_EVAL}' ({seconds:.1f}s)")
+
+
+TOP_TITLE_WIDTH = 60
+TOP_COMPANY_WIDTH = 24
+
+
+def _clip(text: str, width: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= width else text[: width - 3] + "..."
+
+
+def format_top(matches: Sequence[TopMatch], threshold: float, counts: ScoreCounts) -> str:
+    """A table of the best matches, with a marker line where `threshold` (notify_threshold) cuts the list."""
+    header = ("#", "score", "company", "title", "terms", "locations", "url")
+    rows = [
+        (
+            str(rank),
+            f"{m.score:.3f}",
+            _clip(m.company, TOP_COMPANY_WIDTH),
+            _clip(m.title, TOP_TITLE_WIDTH) + (f" [{m.notification}]" if m.notification else ""),
+            ", ".join(m.terms) or "not stated",
+            "; ".join(m.locations) or "not stated",
+            m.url,
+        )
+        for rank, m in enumerate(matches, 1)
+    ]
+    widths = [max(len(header[i]), *(len(r[i]) for r in rows)) for i in range(len(header) - 1)]
+
+    def line(cells: Sequence[str]) -> str:
+        return "  ".join(c.ljust(w) for c, w in zip(cells, widths, strict=False)) + "  " + cells[-1]
+
+    marker = f"---- notify_threshold {threshold:.3f}: rows above this line qualify for a Telegram push ----"
+    lines = [line(header)]
+    marked = False
+    for match_, row in zip(matches, rows, strict=True):
+        if not marked and match_.score < threshold:
+            lines.append(marker)
+            marked = True
+        lines.append(line(row))
+    if not marked:
+        lines.append(marker)
+    lines.append(
+        f"{counts.scored} open postings scored; {counts.above} at or above notify_threshold {threshold:.3f}"
+    )
+    return "\n".join(lines)
+
+
+@radar_app.command()
+def top(
+    n: int = typer.Argument(10, min=1, help="How many matches to show"),
+    new: bool = typer.Option(False, "--new", help="Only postings that were never notified"),
+    threshold: float | None = typer.Option(
+        None, "--threshold", "-t", help="Draw the cut line here instead of radar.notify_threshold (to calibrate it)"
+    ),
+) -> None:
+    """Print the best open matches by score, rescoring first (needs no API key).
+
+    Already-notified postings are shown with their notification status unless --new is given.
+    """
+    from orbit.radar.match import score_counts, score_postings, top_matches, why_nothing_scored
+
+    async def _main():
+        async with open_runtime() as rt:
+            cut = threshold if threshold is not None else rt.config.radar.notify_threshold
+            scoring = await score_postings(rt.db, rt.config.radar)
+            matches = await top_matches(rt.db, n, new_only=new)
+            counts = await score_counts(rt.db, cut)
+            hint = None if matches else await why_nothing_scored(rt.db)
+            return scoring, matches, counts, cut, hint
+
+    scoring, matches, counts, cut, hint = _run(_main())
+    if not matches:
+        if new and counts.scored:
+            typer.secho(f"all {counts.scored} scored postings were already notified (drop --new)", fg="yellow")
+        else:
+            typer.secho(_printable(f"no scored postings: {hint}"), fg="yellow")
+        return
+    against = "resume + goal" if scoring.goal else "resume"
+    typer.echo(f"top {len(matches)} open matches by cosine similarity to your {against}:")
+    typer.echo(_printable(format_top(matches, cut, counts)))
