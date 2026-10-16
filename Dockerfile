@@ -23,6 +23,7 @@ RUN pip install --no-deps . && rm -rf build orbit.egg-info
 
 COPY alembic.ini config.yaml ./
 COPY persona ./persona
+COPY evals ./evals
 
 # UID 1000 matches the default user on most Linux hosts, so bind-mounted data/, logs/, memory/ stay writable.
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin orbit \

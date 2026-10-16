@@ -233,7 +233,9 @@ def poll(
     ),
     source: str | None = typer.Option(None, "--source", "-s", help="Only poll one board type"),
 ) -> None:
-    """Poll the active companies' boards once and sync postings, the same pipeline the watcher runs.
+    """Poll the active companies' boards once and sync postings (the watcher's first stage).
+
+    `orbit radar extract`, `embed` and `top` run the later stages by hand.
 
     Needs no LLM key. Exit code 1 only when every polled company failed.
     """

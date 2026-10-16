@@ -17,7 +17,6 @@ scripts
 docs
 docker
 deploy
-evals
 # Root-level docs only (PLAN, PROGRESS, ...); persona/*.md is not matched by this pattern.
 *.md
 !README.md

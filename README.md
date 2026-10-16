@@ -240,8 +240,8 @@ stores a free-text goal ("ML infrastructure, Toronto, summer 2027") that is blen
 | `orbit radar top [N] [--threshold X] [--new]` | Rescore, then print the best N open matches (default 10). `--new` hides already-notified postings. |
 | `orbit radar stats [--json]` | Print the radar metrics. Read-only, no API key needed. |
 
-`--source` takes `greenhouse`, `lever` or `ashby`. The Docker image does not include `evals/`, so run
-`orbit radar eval` from a local checkout.
+`--source` takes `greenhouse`, `lever` or `ashby`. In Docker, run any of these as
+`docker compose exec orbit orbit radar <command>` (the image includes `evals/`).
 
 ### Configuration: the `radar:` section of `config.yaml`
 
