@@ -83,21 +83,78 @@ PREFILTER_DESCRIPTION_CHARS = 600
 
 _NON_STUDENT_RE = re.compile(r"\b(" + "|".join(NON_STUDENT_TITLE_PATTERNS) + r")\b\.?", re.IGNORECASE)
 _STUDENT_RE = re.compile(r"\b(" + "|".join(STUDENT_PATTERNS) + r")\b", re.IGNORECASE)
-# PhD-only roles ("PhD", "Ph.D.", "Ph D", "PhDs") are student roles but not for an undergrad, so this
-# rule ignores the student veto.
+# PhD-only roles ("PhD", "Ph.D.", "Ph D", "PhDs") are student roles but not for an undergrad, so these
+# rules ignore the student veto.
 _PHD_RE = re.compile(r"\bph\.?\s?d\.?s?\b", re.IGNORECASE)
+_PHD = r"ph\.?\s?d\b\.?"
+# "a PhD or Master's", "PhD/MS": another degree is accepted, so the PhD is not required.
+_NOT_OTHER_DEGREE = (
+    r"(?!\s*(?:/|,|or\b|and\b)\s*(?:an?\s+)?(?:master|m\.?sc?\b|m\.?eng|mba|bachelor|b\.?sc?\b|undergrad))"
+)
+# Description phrases that make a PhD a requirement. The PhD must follow the verb directly, so "pursuing
+# a Bachelor's, Master's or PhD" does not match.
+PHD_REQUIRED_PATTERNS: tuple[str, ...] = (
+    rf"\b(?:pursuing|enrolled\s+in|enrollment\s+in|enrolment\s+in|working\s+towards?|completing|"
+    rf"in\s+the\s+process\s+of\s+obtaining)\s+(?:(?:a|an|your)\s+)?(?:current\s+)?{_PHD}{_NOT_OTHER_DEGREE}",
+    rf"\b{_PHD}\s*(?:students?|candidates?)\s+only\b",
+    rf"\bonly\s+(?:open\s+)?(?:to\s+)?{_PHD}\s*(?:students?|candidates?)",
+    rf"\bmust\s+be\s+(?:an?\s+)?(?:current\s+)?{_PHD}\s*(?:students?|candidates?)",
+    rf"\b{_PHD}\s+(?:degree\s+)?(?:is\s+)?required\b",
+)
+# A requirement line that says any of these, or sits under a heading that does, only prefers a PhD.
+_PREFERRED_RE = re.compile(
+    r"\b(?:prefer|preferred|preferably|preference|ideally|plus|bonus|nice\s+to\s+have|desirable|desired|"
+    r"advantage|advantageous|asset)\b",
+    re.IGNORECASE,
+)
+# Headings that start a requirements section again (end of a "Preferred qualifications" section).
+_SECTION_RE = re.compile(
+    r"\b(?:requirements?|required|qualifications|minimum|basic|must\s+have|what\s+you|you\s+have|you\s+will|"
+    r"you'll|you\s+may|about\s+you|who\s+you\s+are|responsibilities|what\s+we|benefits|perks)\b",
+    re.IGNORECASE,
+)
+_HEADING_MAX_CHARS = 80
+_PHD_REQUIRED_RE = re.compile("|".join(PHD_REQUIRED_PATTERNS), re.IGNORECASE)
+
+
+def phd_requirement(description: str) -> str | None:
+    """The description phrase that requires a PhD, or None when a PhD is optional, preferred or unmentioned.
+
+    Reads line by line. A match is ignored when its line names a preference ("PhD preferred", "ideally
+    pursuing a PhD") or when it sits under a short heading that does ("Preferred qualifications:"), until
+    the next requirements-style heading.
+    """
+    in_preferred = False
+    for line in (description or "").splitlines():
+        text = line.strip().lstrip("-*•· ").strip()
+        if not text:
+            continue
+        if len(text) <= _HEADING_MAX_CHARS:
+            if _PREFERRED_RE.search(text) and not _PHD_RE.search(text):
+                in_preferred = True
+                continue
+            if _SECTION_RE.search(text) and not _PHD_RE.search(text):
+                in_preferred = False
+                continue
+        match = _PHD_REQUIRED_RE.search(text)
+        if match and not in_preferred and not _PREFERRED_RE.search(text):
+            return match.group(0)
+    return None
 
 
 def skip_reason(posting: PostingText) -> str | None:
     """Why the posting is not worth an LLM call, or None when the LLM should decide.
 
-    Skips any title that names a PhD. Otherwise conservative: skip only when the title has a
-    seniority/management word and neither the title nor the opening of the description mentions
-    anything student-like.
+    Skips any title that names a PhD, and any description that requires one (see `phd_requirement`).
+    Otherwise conservative: skip only when the title has a seniority/management word and neither the
+    title nor the opening of the description mentions anything student-like.
     """
     title = posting.title or ""
     if _PHD_RE.search(title):
         return f"title: {title.strip()[:200]} (PhD role)"
+    required = phd_requirement(posting.description_text or "")
+    if required is not None:
+        return f"description requires a PhD ({required.strip()[:100]!r})"
     senior = _NON_STUDENT_RE.search(title)
     if senior is None:
         return None

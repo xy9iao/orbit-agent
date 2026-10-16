@@ -65,8 +65,10 @@ FAIRE_INTERN = "Applied AI/ML Scientist, Intern"
 TARGETS = (SWE_INTERN, ML_INTERN)  # the resume is built to match these two (module docstring)
 ML_INTERN_ID = "36d1f52f-8270-4652-adf5-5303a0ff341b"
 
-# Titles the prefilter skips without an LLM call (seniority word, nothing student-like).
+# Postings the prefilter skips without an LLM call: a seniority word with nothing student-like, or (Cohere's
+# research intern) a description that requires a PhD.
 PREFILTERED = {
+    RESEARCH_INTERN,
     "Director, Global Equity",
     "(Canada) Principal ML System Engineer",
     "(US) Principal ML System Engineer",
@@ -101,8 +103,8 @@ def _not_intern(locations: list[str], *, remote: bool, canada: bool, role_type: 
 
 # What the fake LLM answers per posting title: valid PostingExtraction JSON, close to what a real model
 # would read from each fixture posting. Faire's intern role is real but in San Francisco, so it is
-# extracted and embedded yet fails the location rule (never scored); Cohere's three interns are remote in
-# Canada for Winter 2027 and pass every rule.
+# extracted and embedded yet fails the location rule (never scored); Cohere's two scripted interns are remote
+# in Canada for Winter 2027 and pass every rule.
 SCRIPT: dict[str, dict[str, Any]] = {
     FAIRE_INTERN: {
         "is_internship": True,
@@ -126,7 +128,6 @@ SCRIPT: dict[str, dict[str, Any]] = {
         ["Mississauga, ON"], remote=True, canada=True
     ),
     SWE_INTERN: _cohere_intern("swe", ["python", "go", "typescript"]),
-    RESEARCH_INTERN: _cohere_intern("research", ["python", "pytorch"]),
     ML_INTERN: _cohere_intern("ml_ai", ["python", "pytorch", "jax"]),
 }
 INTERNS = {title for title, fields in SCRIPT.items() if fields["is_internship"]}
@@ -312,7 +313,7 @@ async def test_radar_end_to_end(e2e: E2E):
     assert {p.source for p in rows.values()} == {"greenhouse", "lever", "ashby"}
     assert all(p.status == "open" for p in rows.values())
 
-    # Extraction: one LLM call per non-prefiltered posting; the obvious senior titles never reach the LLM.
+    # Extraction: one LLM call per non-prefiltered posting; senior titles and PhD-only roles never reach the LLM.
     assert set(rows) == set(SCRIPT) | PREFILTERED
     assert sorted(e2e.llm.extract_titles) == sorted(SCRIPT)
     for title, p in rows.items():
@@ -325,7 +326,7 @@ async def test_radar_end_to_end(e2e: E2E):
 
     # Embedding: only the extracted internships, in one batch; the resume trick's texts are what was embedded.
     [embed_call] = e2e.llm.embed_calls
-    assert len(embed_call["texts"]) == len(INTERNS) == 4
+    assert len(embed_call["texts"]) == len(INTERNS) == 3
     assert set(e2e.target_texts.values()) <= set(embed_call["texts"])
     for title, p in rows.items():
         if title in INTERNS:
@@ -334,12 +335,11 @@ async def test_radar_end_to_end(e2e: E2E):
             assert p.embedding is None and p.embedded_hash is None, title
 
     # Scoring: the two targets match the resume; Faire's intern fails the location rule (San Francisco) and
-    # stays unscored; Cohere's research intern passes the rules but is unrelated to the resume vector.
+    # stays unscored.
     for title in TARGETS:
         assert rows[title].score == pytest.approx(e2e.expected_score(title), abs=1e-4)
         assert rows[title].score > 0.6
-    assert abs(rows[RESEARCH_INTERN].score) < 0.2
-    assert {t for t, p in rows.items() if p.score is not None} == {*TARGETS, RESEARCH_INTERN}
+    assert {t for t, p in rows.items() if p.score is not None} == set(TARGETS)
 
     # Notification: exactly one Telegram message per match, with score, company, title, terms and URL.
     assert sorted(first) == sorted(_match_text(t, rows[t].score, rows[t].url) for t in TARGETS)
@@ -405,5 +405,5 @@ async def test_radar_end_to_end(e2e: E2E):
         assert top[title]["url"] == rows[title].url and top[title]["notified"] is True
         assert top[title]["company"] == "Cohere" and top[title]["locations"] == ["Remote (Canada)"]
     others = {r["title"]: r for r in result["results"][2:]}
-    assert RESEARCH_INTERN in others and others[RESEARCH_INTERN]["notified"] is False
+    assert RESEARCH_INTERN not in others  # PhD-only: prefiltered, so never an internship match
     assert FAIRE_INTERN not in others  # San Francisco only: filtered out by location

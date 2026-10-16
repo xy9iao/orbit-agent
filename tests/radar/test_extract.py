@@ -21,6 +21,7 @@ from orbit.radar.extract import (
     build_messages,
     extract_pending,
     extract_posting,
+    phd_requirement,
     prefilter,
     skip_reason,
     truncate_description,
@@ -200,6 +201,51 @@ def test_prefilter_phd_rule_needs_the_whole_word(title):
 
 def test_prefilter_phd_in_description_only_is_kept():
     assert prefilter(posting(title="Research Intern", description_text="Open to Bachelor's and PhD students.")) is False
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "Please Note: To be eligible, you must be currently pursuing a PhD in Machine Learning or NLP.",
+        "Requirements:\n- Pursuing PhD degree in Computer Science or a related field",
+        "This internship is for PhD students only.",
+        "Currently enrolled in a PhD program in statistics or psychology",
+        "- Working towards a Ph.D. in Robotics",
+        "The role is only open to PhD candidates.",
+        "You must be a current PhD student.",
+        "A PhD is required.",
+        "Preferred qualifications:\n- Publications\nMinimum qualifications:\n- Currently pursuing a PhD in ML",
+    ],
+)
+def test_prefilter_skips_descriptions_that_require_a_phd(description):
+    reason = skip_reason(posting(title="Research Intern", description_text=description))
+    assert reason is not None and reason.startswith("description requires a PhD")
+
+
+@pytest.mark.parametrize(
+    "description",
+    [
+        "PhD preferred.",
+        "- Currently pursuing a PhD is a plus",
+        "Ideally pursuing a PhD in ML.",
+        "Preferred Qualifications:\n- Currently pursuing a PhD in ML\n- Publications at NeurIPS",
+        "Nice to have:\n- Enrolled in a PhD program",
+        "Working towards a Master's or PhD degree in Computer Science",
+        "Currently enrolled in or recently graduated from a Master's or PhD program",
+        "Through pursuit of a Bachelor's, Master's, or PhD degree in computer science",
+        "Currently pursuing a PhD or Master's degree in CS",
+        "Pursuing a PhD/MS in Robotics",
+        "Bachelors or MS/PhD degree in Computer Science",
+        "This internship is for undergraduate students.",
+    ],
+)
+def test_prefilter_keeps_descriptions_where_a_phd_is_optional(description):
+    assert skip_reason(posting(title="Research Intern", description_text=description)) is None
+
+
+def test_phd_requirement_returns_the_matching_phrase():
+    assert phd_requirement("About us\n\nYou must be currently pursuing a PhD in NLP.") == "pursuing a PhD"
+    assert phd_requirement("") is None
 
 
 def test_prefilter_description_opening_vetoes_skip():
