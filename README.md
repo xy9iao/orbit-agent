@@ -255,7 +255,7 @@ stores a free-text goal ("ML infrastructure, Toronto, summer 2027") that is blen
 | `max_notifications_per_poll` | `5` | Individual Telegram messages per run; the rest go into one digest message. |
 
 The watcher itself is enabled under `watchers:` (`type: internship_radar, interval_minutes: 30`).
-The models come from the `extract` (gpt-5-mini) and `embed` (text-embedding-3-small, 1536 dims)
+The models come from the `extract` (gpt-6-luna) and `embed` (text-embedding-3-small, 1536 dims)
 tasks under `tasks:`.
 
 ## Metrics

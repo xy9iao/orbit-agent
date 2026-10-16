@@ -23,8 +23,9 @@ tasks:
   # needs a new Alembic migration and a re-embed of every posting and profile.
   embed:     { provider: openai, model: text-embedding-3-small }
   # Radar posting extraction (M4.2): schema-constrained JSON from a small model. Low reasoning
-  # effort keeps it cheap; raise it if `orbit radar eval` accuracy is poor.
-  extract:   { provider: openai, model: gpt-5-mini, params: { reasoning_effort: low } }
+  # effort keeps it cheap; raise it if `orbit radar eval` accuracy is poor. gpt-6-luna replaced
+  # gpt-5-mini here ($0.10/$0.50 vs $0.25/$2.00 per 1M tokens); switch back if eval accuracy drops.
+  extract:   { provider: openai, model: gpt-6-luna, params: { reasoning_effort: low } }
   # Extra request params are passed straight to the API, e.g.
   # chat: { provider: openai, model: gpt-5, params: { reasoning_effort: low } }
 
