@@ -70,7 +70,7 @@ def _run[T](coro: Coroutine[Any, Any, T]) -> T:
     """asyncio.run with the expected failures turned into a one-line error and exit code 1."""
     try:
         return asyncio.run(coro)
-    except (FileNotFoundError, ValueError) as e:
+    except (FileNotFoundError, ValueError, NotImplementedError) as e:
         raise _fail(str(e)) from None
     except (OSError, SQLAlchemyError) as e:
         first_line = (str(e).splitlines() or [""])[0]
@@ -355,6 +355,52 @@ def embed(
             err=True,
         )
         raise typer.Exit(1)
+
+
+@radar_app.command()
+def reextract(
+    limit: int | None = typer.Option(None, "--limit", "-n", min=1, help="Postings to re-extract, newest first"),
+    wait: bool = typer.Option(True, "--wait/--no-wait", help="Wait for the batch, then collect, embed and score"),
+    poll_seconds: int = typer.Option(30, "--poll-seconds", min=5, help="Seconds between batch status checks"),
+) -> None:
+    """Re-extract open postings whose extraction is ok, in one Message Batch on the 'extract' route.
+
+    For after the extract model changes. Running it again resumes the batch in flight instead of
+    submitting a new one. Writes new extractions, re-embeds changed postings and rescores; it never
+    sends notifications (the watcher's next poll notifies new matches, each posting at most once).
+    """
+    from orbit.radar.match import describe_embed, describe_score, embed_pending, score_postings
+    from orbit.radar.reextract import KV_KEY, collect, describe, select_extracted, submit
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "extract")
+            require_task(rt.router, "embed")
+            state = await rt.db.kv_get(KV_KEY)
+            if state:
+                typer.echo(f"resuming batch {state['batch_id']} ({len(state['postings'])} postings, {state['model']})")
+            else:
+                postings = await select_extracted(rt.db, limit=limit)
+                if not postings:
+                    typer.echo("no extracted open postings to re-extract")
+                    return
+                state = await submit(rt.db, rt.router, postings)
+                typer.echo(f"submitted batch {state['batch_id']}: {len(postings)} postings to {state['model']}")
+            t0 = time.perf_counter()
+            while (status := await rt.router.batch_status("extract", state["batch_id"])) != "ended":
+                if not wait:
+                    typer.echo(f"batch {status}; run `orbit radar reextract` again to collect it")
+                    return
+                await asyncio.sleep(poll_seconds)
+            typer.echo(f"batch ended ({time.perf_counter() - t0:.0f}s waited)")
+            summary = await collect(rt.db, rt.router, state)
+            typer.echo(f"reextract: {describe(summary)}")
+            for line in summary.examples:
+                typer.echo(f"  {_printable(line)}")
+            typer.echo(f"embed: {describe_embed(await embed_pending(rt.db, rt.router))}")
+            typer.echo(f"score: {describe_score(await score_postings(rt.db, rt.config.radar))}")
+
+    _run(_main())
 
 
 def _printable(text: str) -> str:

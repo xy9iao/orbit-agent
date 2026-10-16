@@ -180,7 +180,27 @@ Each entry says what we chose, why, and what happens when it fails. The first se
 - **When it fails:** it is a phrase list, so new wordings ("doctoral candidates", "PhD-level students") slip through, and an exception clause is not read ("we will also consider exceptional non-PhD candidates" still skips Cohere's posting). A short unrelated line containing "plus" or "asset" can open a "preferred" section early and hide a real requirement (the posting is then kept, the safe direction). Already-extracted postings need the one-off re-check.
 
 ## Anthropic as a second provider (2026-10-16)
-- **Chose:** `AnthropicProvider` on the official `anthropic` SDK behind the existing `Provider` protocol, selected per provider with `type: anthropic` in config.yaml and keyed by `ANTHROPIC_API_KEY`. It translates Orbit's OpenAI-format messages and tools to the Messages API, never sends `tool_choice`, turns the radar's `response_format` into structured outputs (`output_config.format`), maps `effort` to `output_config.effort`, and `cache_system: true` caches the system prompt. Tool-calling turns keep their raw blocks (`provider_blocks`) so thinking blocks go back verbatim. Routing: chat, briefing, code on claude-sonnet-5-5; extract (effort low, cached system prompt), fast, summarize on claude-haiku-5-5; embed stays on OpenAI text-embedding-3-small (1536 dims, no migration).
+- **Chose:** `AnthropicProvider` on the official `anthropic` SDK behind the existing `Provider` protocol, selected per provider with `type: anthropic` in config.yaml and keyed by `ANTHROPIC_API_KEY`. It translates Orbit's OpenAI-format messages and tools to the Messages API, never sends `tool_choice`, turns the radar's `response_format` into structured outputs (`output_config.format`), maps `effort` to `output_config.effort`, and `cache_system: true` caches the system prompt. Tool-calling turns keep their raw blocks (`provider_blocks`) so thinking blocks go back verbatim. Routing at first: chat, briefing, code on claude-sonnet-5-5; extract (effort low, cached system prompt), fast, summarize on claude-haiku-5-5; embed stays on OpenAI text-embedding-3-small (1536 dims, no migration). Changed the same day, see the next entry.
 - **Why:** a second vendor behind the router shows the abstraction holds, and lets each task use the better model. Keeping embeddings on OpenAI avoids a schema migration and a full re-embed (Anthropic has no embeddings API).
 - **Eval (30 unverified labels, both at low effort):** gpt-6-luna vs claude-haiku-5-5: is_internship 100 / 100%, terms 93.3 / 90.0%, locations 86.7 / 80.0%, remote_ok 93.3 / 96.7%, canada_eligible 100 / 96.7%, role_type 93.3 / 86.7%, tech_stack 86.7 / 80.0%, 0 failures each. Both cost $0.10 / $0.50 per MTok in/out with $0.01 cache reads. Haiku used ~3,860 input tokens per posting (about 1,950 of them a cached prefix) and 138 output: $0.0285 per 100 extracted postings, 17.5 s for 30. Luna used ~2,230 input and 201 output: about $0.032 per 100 at list price with no cache hits (the measured run was almost fully cached by an immediately preceding run, so its $0.012 is not representative), 31 s for 30. Cost is a wash; Luna was more accurate on 5 of 7 fields.
 - **When it fails:** without `ANTHROPIC_API_KEY` the anthropic provider is skipped and every Claude-routed task fails to resolve, so chat, briefing and extraction stop until the key is added or the tasks are routed back to openai. Message translation covers text, tool calls and tool results only (no images). The no-tools final round flattens tool history to text. Structured outputs reject some JSON Schema keywords; `transform_schema` moves them into descriptions, so they are no longer enforced by the API (Pydantic validation still runs).
+
+## Extraction on claude-sonnet-5-5, chat and briefing on claude-opus-5-5 (2026-10-16)
+- **Chose:** `extract` on claude-sonnet-5-5 (effort low, cached system prompt), `chat` and `briefing` on claude-opus-5-5, `code` stays on claude-sonnet-5-5, `fast` and `summarize` on claude-haiku-5-5, `embed` on OpenAI text-embedding-3-small. gpt-6-luna and claude-haiku-5-5 stay in config.yaml as commented `extract` routes. The extractions already stored were redone once with `orbit radar reextract` (one Message Batch, half price) and rescored.
+- **Why:** owner's choice. On the eval Sonnet ties or beats Haiku on 6 of 7 fields and is the only model at 100% on terms, which feeds the term filter.
+
+| field (30 unverified labels, low effort) | gpt-6-luna | claude-haiku-5-5 | claude-sonnet-5-5 |
+|---|---|---|---|
+| is_internship | 100.0% | 100.0% | 100.0% |
+| terms | 93.3% | 90.0% | 100.0% |
+| locations | 86.7% | 80.0% | 83.3% |
+| remote_ok | 93.3% | 96.7% | 93.3% |
+| canada_eligible | 100.0% | 96.7% | 100.0% |
+| role_type | 93.3% | 86.7% | 93.3% |
+| tech_stack | 86.7% | 80.0% | 83.3% |
+| failures | 0 | 0 | 0 |
+| cost per 100 extracted postings | ≈ $0.032 | $0.0285 | $0.513 ($0.26 batched) |
+| time for 30 postings | 31 s | 17.5 s | 25.2 s |
+
+  Sonnet 5.5 is $2 / $10 per MTok in/out, $2.50 cache writes, $0.10 cache reads (half of all of it in a batch); it used the same ~3,860 input tokens per posting as Haiku (~1,950 of them the cached prefix) and ~100 output tokens. Each gap is one or two postings out of 30 unverified labels, so the ranking between Luna and Sonnet is a tie within noise.
+- **When it fails:** extraction costs about 18× what Luna or Haiku cost. At most `max_extract_per_poll` (40) postings per poll reach the model, so a worst-case poll is about $0.21 and a normal one (a handful of new postings) a few cents. Switching back is one line. A missing `ANTHROPIC_API_KEY` now stops extraction, chat and briefing together.

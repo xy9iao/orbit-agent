@@ -16,12 +16,15 @@ Orbit's call sites speak OpenAI chat format, so this adapter translates both way
 - params: `effort` goes into `output_config.effort`; `cache_system: true` puts a `cache_control`
   breakpoint on the system prompt (prompt caching); `max_tokens` defaults to DEFAULT_MAX_TOKENS; any
   other param is passed straight to `messages.create`.
+- batches: `submit_batch` / `batch_status` / `batch_results` run the same requests through the Message
+  Batches API (half price, asynchronous); used by `orbit radar reextract`.
 """
 
 from __future__ import annotations
 
 import copy
 import json
+from collections.abc import Sequence
 from typing import Any
 
 from anthropic import AsyncAnthropic, DefaultAsyncHttpxClient, transform_schema
@@ -138,6 +141,41 @@ def output_format(response_format: dict[str, Any]) -> dict[str, Any]:
     return {"type": "json_schema", "schema": transform_schema(schema)}
 
 
+def to_response(message: Any) -> Response:
+    """A Messages API `Message` as Orbit's Response (text, tool calls, usage, blocks to send back)."""
+    texts: list[str] = []
+    tool_calls: list[ToolCall] = []
+    blocks: list[dict[str, Any]] = []
+    for block in message.content:
+        if block.type == "text":
+            texts.append(block.text)
+        elif block.type == "tool_use":
+            tool_calls.append(ToolCall(id=block.id, name=block.name, arguments=_tool_input(block.input)))
+        param = block_param(block)
+        if param is not None:
+            blocks.append(param)
+
+    usage: dict[str, int] = {}
+    if message.usage:
+        u = message.usage
+        cache_write = u.cache_creation_input_tokens or 0
+        cache_read = u.cache_read_input_tokens or 0
+        usage = {
+            # Total input, so usage records stay comparable with OpenAI's prompt_tokens.
+            "prompt_tokens": (u.input_tokens or 0) + cache_write + cache_read,
+            "completion_tokens": u.output_tokens or 0,
+            "cache_creation_input_tokens": cache_write,
+            "cache_read_input_tokens": cache_read,
+        }
+    return Response(
+        text="".join(texts),
+        tool_calls=tool_calls,
+        usage=usage,
+        raw=message,
+        provider_blocks=blocks if tool_calls else None,
+    )
+
+
 class AnthropicProvider:
     def __init__(
         self, name: str, api_key: str, base_url: str | None = None, proxy: str | None = None, client: Any = None
@@ -192,37 +230,42 @@ class AnthropicProvider:
         **params: Any,
     ) -> Response:
         message = await self._client.messages.create(**self.build_request(model, messages, tools, **params))
-        texts: list[str] = []
-        tool_calls: list[ToolCall] = []
-        blocks: list[dict[str, Any]] = []
-        for block in message.content:
-            if block.type == "text":
-                texts.append(block.text)
-            elif block.type == "tool_use":
-                tool_calls.append(ToolCall(id=block.id, name=block.name, arguments=_tool_input(block.input)))
-            param = block_param(block)
-            if param is not None:
-                blocks.append(param)
+        return to_response(message)
 
-        usage: dict[str, int] = {}
-        if message.usage:
-            u = message.usage
-            cache_write = u.cache_creation_input_tokens or 0
-            cache_read = u.cache_read_input_tokens or 0
-            usage = {
-                # Total input, so usage records stay comparable with OpenAI's prompt_tokens.
-                "prompt_tokens": (u.input_tokens or 0) + cache_write + cache_read,
-                "completion_tokens": u.output_tokens or 0,
-                "cache_creation_input_tokens": cache_write,
-                "cache_read_input_tokens": cache_read,
-            }
-        return Response(
-            text="".join(texts),
-            tool_calls=tool_calls,
-            usage=usage,
-            raw=message,
-            provider_blocks=blocks if tool_calls else None,
+    # ---- Message Batches API: asynchronous, half price, results within 24 hours ------------------------
+    async def submit_batch(
+        self, model: str, requests: Sequence[tuple[str, list[dict[str, Any]]]], **params: Any
+    ) -> str:
+        """Submit (custom_id, messages) pairs as one message batch; returns the batch id.
+
+        Each request gets the same params as `complete` (structured output, effort, prompt caching).
+        custom_id must match ^[a-zA-Z0-9_-]{1,64}$ and be unique within the batch.
+        """
+        batch = await self._client.messages.batches.create(
+            requests=[
+                {"custom_id": custom_id, "params": self.build_request(model, messages, None, **params)}
+                for custom_id, messages in requests
+            ]
         )
+        return batch.id
+
+    async def batch_status(self, batch_id: str) -> str:
+        """`in_progress`, `canceling` or `ended` (results are available once ended)."""
+        return (await self._client.messages.batches.retrieve(batch_id)).processing_status
+
+    async def batch_results(self, batch_id: str) -> dict[str, Response | str]:
+        """custom_id -> Response for succeeded requests, or an error text for errored/canceled/expired ones."""
+        out: dict[str, Response | str] = {}
+        async for entry in await self._client.messages.batches.results(batch_id):
+            result = entry.result
+            if result.type == "succeeded":
+                out[entry.custom_id] = to_response(result.message)
+            elif result.type == "errored":
+                error = getattr(result.error, "error", result.error)
+                out[entry.custom_id] = f"errored: {getattr(error, 'message', error)}"
+            else:
+                out[entry.custom_id] = result.type
+        return out
 
     async def embed(self, model: str, texts: list[str], **params: Any) -> EmbedResponse:
         raise NotImplementedError("Anthropic has no embeddings API; route the embed task to an OpenAI provider")

@@ -55,6 +55,13 @@ class ModelRouter:
             )
         return provider, tc.model, dict(tc.params)
 
+    def describe_routes(self) -> str:
+        """One line for the startup log: `task=provider:model` per task, unavailable providers marked."""
+        return ", ".join(
+            f"{task}={tc.provider}:{tc.model}" + ("" if tc.provider in self.providers else " (no key)")
+            for task, tc in self.config.tasks.items()
+        )
+
     async def complete(
         self,
         task: str,
@@ -75,6 +82,40 @@ class ModelRouter:
                 resp.usage.get("completion_tokens", 0),
             )
         return resp
+
+    # ---- batches (Anthropic Message Batches API) -------------------------------------------------------
+    def _batch_provider(self, task: str) -> tuple[Any, str, dict[str, Any]]:
+        provider, model, params = self.resolve(task)
+        if not hasattr(provider, "submit_batch"):
+            raise NotImplementedError(f"provider '{provider.name}' for task '{task}' does not support batches")
+        return provider, model, params
+
+    async def submit_batch(self, task: str, requests: list[tuple[str, list[dict[str, Any]]]], **overrides: Any) -> str:
+        """Submit (custom_id, messages) pairs for `task` as one batch; returns the batch id."""
+        provider, model, params = self._batch_provider(task)
+        params.update(overrides)
+        logger.debug("router: batch task={} -> {}:{} ({} requests)", task, provider.name, model, len(requests))
+        return await provider.submit_batch(model, requests, **params)
+
+    async def batch_status(self, task: str, batch_id: str) -> str:
+        provider, _, _ = self._batch_provider(task)
+        return await provider.batch_status(batch_id)
+
+    async def batch_results(self, task: str, batch_id: str) -> dict[str, Response | str]:
+        """custom_id -> Response (usage recorded like `complete`) or an error text."""
+        provider, model, _ = self._batch_provider(task)
+        results = await provider.batch_results(batch_id)
+        if self.usage_sink:
+            for resp in results.values():
+                if isinstance(resp, Response) and resp.usage:
+                    await self.usage_sink(
+                        task,
+                        provider.name,
+                        model,
+                        resp.usage.get("prompt_tokens", 0),
+                        resp.usage.get("completion_tokens", 0),
+                    )
+        return results
 
     async def embed(self, task: str, texts: list[str], **overrides: Any) -> list[list[float]]:
         """Embed `texts` with the task's model; returns one vector per text, in input order."""
