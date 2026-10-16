@@ -29,7 +29,10 @@ Scoring (`score_postings`, M5.4). Rule filters run in SQL (`eligible_postings_fi
 - location: an extracted location is in `radar.locations`, or `remote_ok` and `canada_eligible` are both
   true. A posting with no extracted location passes only through the remote branch
   (LOCATIONS_NOT_STATED_PASSES is False): an unknown location is not evidence of a Canadian office.
-- An empty `radar.terms` / `radar.locations` list in config.yaml switches that filter off (no preference).
+- role: the extracted `role_type` is in `radar.role_types` (a hard filter; finance or operations internships
+  never score when the list names only technical roles).
+- An empty `radar.terms` / `radar.locations` / `radar.role_types` list in config.yaml switches that filter
+  off (no preference).
 Config values are normalized with the same helpers as extraction ("summer '27" -> "Summer 2027",
 "Toronto" -> "Toronto, ON"), so they compare equal to the stored canonical forms.
 
@@ -308,13 +311,23 @@ def location_filter(locations: Sequence[str]) -> ColumnElement[bool]:
     return or_(*branches)
 
 
+def role_filter(role_types: Sequence[str]) -> ColumnElement[bool]:
+    """The extracted role_type is one of `role_types` (RoleType values, validated by RadarConfig).
+    Empty `role_types` means no preference: always true."""
+    if not role_types:
+        return true()
+    return Posting.extraction["role_type"].astext.in_(list(role_types))
+
+
 def eligible_postings_filter(config: RadarConfig) -> ColumnElement[bool]:
     """The radar's rule filters as one SQL condition: open internship with an ok extraction, wanted term,
-    wanted location. Can be NULL for odd rows, so negate it with `.is_not(True)`, never `not_()`."""
+    wanted location, wanted role type. Can be NULL for odd rows, so negate it with `.is_not(True)`, never
+    `not_()`."""
     return and_(
         internship_filter(),
         term_filter(wanted_terms(config.terms)),
         location_filter(wanted_locations(config.locations)),
+        role_filter(config.role_types),
     )
 
 

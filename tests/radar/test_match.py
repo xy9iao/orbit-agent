@@ -18,7 +18,7 @@ from sqlalchemy import select, update
 from typer.testing import CliRunner
 
 from orbit.cli.main import app
-from orbit.config import RadarConfig, TaskConfig
+from orbit.config import RadarConfig, TaskConfig, load_config
 from orbit.core.providers.base import EmbedResponse
 from orbit.core.router import ModelRouter
 from orbit.radar import match
@@ -595,6 +595,44 @@ async def test_config_values_are_normalized_and_empty_lists_disable_a_filter(db:
     # An entry that can't be parsed is kept as written: it matches nothing but doesn't break scoring.
     assert wanted_terms(["Summer 2027", "whenever"]) == ["Summer 2027", "whenever"]
     assert wanted_terms(["May-Dec 2027"]) == ["Summer 2027", "Fall 2027"]
+
+
+async def test_role_types_is_a_hard_filter(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    close = vec(1.0)  # similarity 1.0: only the role filter can keep these out
+    await _add(
+        db,
+        _scorable(company, "ml", close, extraction=_with(role_type="ml_ai")),
+        _scorable(company, "swe", close, extraction=_with(role_type="swe")),
+        _scorable(company, "finance", close, extraction=_with(role_type="other")),
+        _scorable(company, "product", close, extraction=_with(role_type="product")),
+        _scorable(company, "no_role", close, extraction={k: v for k, v in GOOD_NORMALIZED.items() if k != "role_type"}),
+    )
+
+    technical = RadarConfig(role_types=["swe", "ml_ai", "infra", "data", "research"])
+    summary = await score_postings(db, technical, now=NOW)
+
+    scores = await _scores(db)
+    assert {k for k, s in scores.items() if s is not None} == {"ml", "swe"}
+    assert summary == ScoreSummary(scored=2)
+
+    # Narrowing the list later clears scores that no longer qualify, so they can never notify.
+    assert await score_postings(db, RadarConfig(role_types=["swe"]), now=NOW) == ScoreSummary(scored=1, cleared=1)
+    # An empty list means any role.
+    assert (await score_postings(db, RadarConfig(role_types=[]), now=NOW)).scored == 5
+
+
+def test_role_types_config_is_validated_and_normalized():
+    cfg = RadarConfig(role_types=["SWE", " ml_ai", "swe", "Research"])
+    assert cfg.role_types == ["swe", "ml_ai", "research"]
+    assert RadarConfig().role_types == []
+    with pytest.raises(ValueError, match="unknown radar.role_types entry 'finance'"):
+        RadarConfig(role_types=["swe", "finance"])
+
+
+def test_repo_config_role_types_parse():
+    assert load_config().radar.role_types == ["swe", "ml_ai", "infra", "data", "research"]
 
 
 async def test_no_resume_is_a_no_op(db: Database):

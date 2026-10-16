@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -109,12 +109,30 @@ class RadarConfig(BaseModel):
     locations: list[str] = Field(
         default_factory=lambda: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
     )
+    # Hard filter on the extracted role type (orbit.radar.models.RoleType values, e.g. swe, ml_ai).
+    # Empty means any role. Unknown names fail at load instead of silently matching nothing.
+    role_types: list[str] = Field(default_factory=list)
     # Cosine-similarity cut-off for a Telegram push. Placeholder until calibrated in M5.5.
     notify_threshold: float = Field(default=0.45, ge=-1.0, le=1.0)
     # Relative to ORBIT_HOME; same default as orbit.radar.profile.DEFAULT_RESUME_PATH.
     resume_path: str = "data/resume.md"
     max_extract_per_poll: int = Field(default=40, ge=0)
     max_notifications_per_poll: int = Field(default=5, ge=0)
+
+    @field_validator("role_types")
+    @classmethod
+    def _known_role_types(cls, values: list[str]) -> list[str]:
+        from orbit.radar.models import RoleType  # local import: keep config free of radar imports at load
+
+        out: list[str] = []
+        for value in values:
+            key = str(value).strip().lower()
+            if key not in RoleType.__members__:
+                allowed = ", ".join(RoleType.__members__)
+                raise ValueError(f"unknown radar.role_types entry {value!r}; use one of: {allowed}")
+            if key not in out:
+                out.append(key)
+        return out
 
 
 class Config(BaseModel):
