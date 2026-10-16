@@ -71,3 +71,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why filter with rules before ranking by similarity?** A: Embeddings measure topical closeness, not eligibility. A senior ML role in San Francisco can sit very close to an ML resume. Hard constraints (internship, term, location) belong in exact filters, and similarity only ranks what's left.
 - **Q: Why compute cosine similarity in Postgres instead of in Python?** A: pgvector's `<=>` runs where the data lives, so one UPDATE scores every posting without moving thousands of 1536-float vectors over the wire. The same operator later works with an HNSW index if the table grows.
+
+## Notifications (`orbit/radar/notify.py`, `Watcher.on_pushed`)
+1. After scoring, the watcher claims every open posting at or above `notify_threshold` that has no `radar_notifications` row, with one `INSERT … ON CONFLICT (posting_id) DO NOTHING RETURNING`.
+2. The UNIQUE `posting_id` is the "never twice" guarantee: once a row exists, no later re-score, close or reopen can claim that posting again.
+3. Up to 5 matches become one Telegram message each (score, company, title, terms, locations, link) and the rest go into one digest, all sent through Orbit's existing `OrbitApp.push`.
+4. The scheduler reports each push's success back through `Watcher.on_pushed`, which marks rows `sent` or `failed`; failed rows are retried on later polls, at most 3 pushes in total.
+5. A row stuck in `pending` (the process died between claim and confirmation) is expired as "delivery unknown" and never re-sent: at-most-once delivery.
+
+- **Q: Why at-most-once instead of at-least-once?** A: The cost of the two failure modes is lopsided. A missed alert is still visible in `orbit radar top` and chat search, while duplicate pings erode trust in the radar. Exactly-once isn't possible over Telegram's API, since a timeout can't tell you whether the message landed.
+- **Q: How do two concurrent pollers avoid both sending the same posting?** A: The claim is an atomic insert against a UNIQUE constraint. Only one transaction's INSERT returns the row, so only that poller builds an event for it.
