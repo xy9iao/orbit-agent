@@ -7,19 +7,20 @@ Enabled in config.yaml:
 
 The scheduler constructs the watcher, calls `bind(orbit)` (we keep the app for its config, router and
 db, and open one long-lived `PoliteClient`, so per-host spacing holds across polls), then calls
-`check(db)` every interval and `close()` on shutdown. For now the pipeline is only the poll; extraction
-(M4.3), embedding and scoring (M5.3/M5.4) and notifications (M6.1) join it later.
+`check(db)` every interval and `close()` on shutdown. `check` runs `orbit.radar.pipeline.run_pipeline`
+(poll, then extraction; embedding, scoring and notifications join it in M5.3/M5.4/M6.1), which never
+raises, and logs one summary line.
 """
 
 from __future__ import annotations
 
-import time
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
-from orbit.radar.poll import PollSummary, poll_all
+from orbit.config import RadarConfig
+from orbit.radar.pipeline import describe, run_pipeline
 from orbit.radar.sources.http import PoliteClient
 from orbit.scheduler.watchers.base import Event, Watcher, register_watcher
 
@@ -54,16 +55,8 @@ class InternshipRadarWatcher(Watcher):
             await client.aclose()
 
     async def check(self, db: Database) -> list[Event]:
-        t0 = time.perf_counter()
-        summary = await poll_all(db, self._ensure_client())
-        logger.info("radar watcher: {} in {:.1f}s", describe(summary), time.perf_counter() - t0)
+        router = self.orbit.router if self.orbit is not None else None
+        config = self.orbit.config.radar if self.orbit is not None else RadarConfig()
+        summary = await run_pipeline(db, router, self._ensure_client(), config)
+        logger.info("radar watcher: {}", describe(summary))
         return []  # no events until notifications (M6.1)
-
-
-def describe(summary: PollSummary) -> str:
-    """One line for the log: companies ok/failed and posting changes."""
-    return (
-        f"companies {summary.ok} ok / {summary.failed} failed, "
-        f"postings {summary.new} new, {summary.updated} updated, "
-        f"{summary.closed} closed, {summary.reopened} reopened"
-    )

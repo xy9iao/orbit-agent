@@ -266,3 +266,58 @@ def poll(
     typer.echo(format_poll(summary, seconds))
     if summary.ok == 0:
         raise typer.Exit(1)
+
+
+async def count_open(db: Database, extraction_statuses: Sequence[str]) -> int:
+    """Open postings whose extraction_status is one of `extraction_statuses`."""
+    from sqlalchemy import func, select
+
+    from orbit.storage.models import Posting
+
+    async with db.session() as s:
+        return int(
+            await s.scalar(
+                select(func.count())
+                .select_from(Posting)
+                .where(Posting.status == "open", Posting.extraction_status.in_(list(extraction_statuses)))
+            )
+            or 0
+        )
+
+
+@radar_app.command()
+def extract(
+    retry_failed: bool = typer.Option(False, "--retry-failed", help="Also retry postings whose extraction failed"),
+    limit: int | None = typer.Option(
+        None, "--limit", "-n", min=1, help="Postings to extract, newest first (default: radar.max_extract_per_poll)"
+    ),
+) -> None:
+    """Run LLM extraction on pending open postings (the watcher's extract stage, by hand).
+
+    Exit code 1 when no provider serves the 'extract' task or the run stopped on provider errors.
+    """
+    from orbit.radar.extract import extract_pending
+    from orbit.radar.pipeline import describe_extract
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "extract")
+            n = limit if limit is not None else rt.config.radar.max_extract_per_poll
+            t0 = time.perf_counter()
+            summary = await extract_pending(rt.db, rt.router, limit=n, retry_failed=retry_failed)
+            seconds = time.perf_counter() - t0
+            left = await count_open(rt.db, ["pending", "failed"] if retry_failed else ["pending"])
+            return summary, seconds, left
+
+    summary, seconds, left = _run(_main())
+    typer.echo(f"extract: {describe_extract(summary)} ({seconds:.1f}s)")
+    what = "pending or failed" if retry_failed else "pending"
+    typer.echo(f"{left} open postings still {what}" + (" (run again to continue)" if left else ""))
+    if summary.aborted:
+        typer.secho(
+            "stopped after repeated provider errors; the remaining postings stay pending (check the API key, "
+            "quota and network)",
+            fg="red",
+            err=True,
+        )
+        raise typer.Exit(1)
