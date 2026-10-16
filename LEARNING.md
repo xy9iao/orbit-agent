@@ -41,3 +41,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why both a strict JSON schema and Pydantic validation?** A: Strict mode guarantees the shape (keys and types), but not the meaning: the model can still write "summer '27" or "Toronto Ontario". Validators turn that into canonical values the SQL filters can compare exactly, and reject output that can't be normalized.
 - **Q: Why write with `WHERE content_hash = :hash`?** A: It's optimistic concurrency. The LLM call takes seconds, and if a poll updated the posting meanwhile, storing the old extraction would label new content with stale fields. The guarded UPDATE affects zero rows, and the posting stays pending for the next run.
+
+## Polling (`orbit/radar/{seed,verify,repo,poll,watcher}.py`)
+1. `seeds.yaml` lists the companies and their public board tokens; `orbit radar seed` upserts them and `verify-sources` fetches each board live to prove the token works.
+2. The `internship_radar` watcher runs every 30 minutes inside Orbit's APScheduler (60 s after startup, never overlapping) and calls the same `poll_all` as `orbit radar poll`.
+3. `poll_all` fetches all companies concurrently through the polite client; each company gets a `radar_runs` row that is written before the fetch and finalized after it.
+4. A successful fetch is synced in one transaction: `INSERT … ON CONFLICT (source, external_id) DO UPDATE` dedupes, changed content resets extraction, missing postings are closed and returning ones reopen.
+5. A failed fetch rolls back and closes nothing, so a flaky board can never wipe its postings; the error is stored on the run row.
+
+- **Q: How do you know which rows `INSERT … ON CONFLICT DO UPDATE` inserted vs updated?** A: `RETURNING (xmax = 0) AS inserted`: a freshly inserted row has no deleting/updating transaction id, while an updated row's old version sets `xmax`. Combined with a pre-read of the old hashes, that also tells changed from unchanged rows.
+- **Q: Why must a failed fetch never close postings?** A: "Missing from the response" only means "gone" when the response is complete. Closing on a 500 or timeout would mark every posting closed and then reopen them all on the next poll, churning state and stats.
