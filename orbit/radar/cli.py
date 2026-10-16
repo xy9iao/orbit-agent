@@ -352,3 +352,51 @@ def embed(
             err=True,
         )
         raise typer.Exit(1)
+
+
+def _printable(text: str) -> str:
+    """Replace characters the console can't encode (the eval banner's warning sign on a GBK/cp1252 console)."""
+    import sys
+
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+
+
+@radar_app.command("eval")
+def eval_command(
+    labels: Path | None = typer.Option(  # noqa: B008
+        None, "--labels", "-l", help="Label file (default: evals/radar_labels.yaml under ORBIT_HOME)"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Load and summarize the labels without any LLM call"),
+) -> None:
+    """Per-field extraction accuracy against the labeled set; the summary is saved for `orbit radar stats`.
+
+    Exit code 1 when the labels are invalid, no provider serves the 'extract' task, or the run stopped
+    after repeated provider errors (no score is saved then).
+    """
+    from orbit.radar import eval as radar_eval
+
+    path = labels if labels is not None else Settings().orbit_home / radar_eval.DEFAULT_LABELS_PATH
+    try:
+        labelset = radar_eval.load_labels(path)  # validated before touching the DB or the model
+    except (FileNotFoundError, ValueError) as e:
+        raise _fail(str(e)) from None
+    unverified = radar_eval.is_unverified(labelset)
+    if dry_run:
+        typer.echo(_printable(radar_eval.dry_run(labelset)))
+        return
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "extract")
+            t0 = time.perf_counter()
+            try:
+                report = await radar_eval.run_eval(rt.router, labelset)
+            except radar_eval.EvalAbortedError as e:
+                raise _fail(f"eval stopped, no score saved: {e}") from None
+            await radar_eval.save_last_eval(rt.db, report, path, unverified)
+            return report, time.perf_counter() - t0
+
+    report, seconds = _run(_main())
+    typer.echo(_printable(radar_eval.format_report(report, unverified)))
+    typer.echo(f"saved to kv '{radar_eval.KV_LAST_EVAL}' ({seconds:.1f}s)")
