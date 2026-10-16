@@ -1,4 +1,4 @@
-"""Matching postings against the resume. M5.3: posting embeddings; M5.4 adds scoring here.
+"""Matching postings against the resume: posting embeddings (M5.3) and scoring (M5.4).
 
 Which postings get an embedding: open postings whose `embedded_hash IS DISTINCT FROM content_hash`
 (never embedded, or the content changed since), whose extraction is done (`ok` or `skipped`) and says
@@ -21,21 +21,44 @@ Embedding text format (`embedding_text`), one field per line, empty fields omitt
     Tech stack: python, pytorch              (extraction ok only)
     <blank line>
     <description, cut near 6,000 chars at a paragraph/line/word break by the same helper extraction uses>
+
+Scoring (`score_postings`, M5.4). Rule filters run in SQL (`eligible_postings_filter`):
+- open, `extraction_status = 'ok'` and `is_internship = true`;
+- term: an extracted term is in `radar.terms`, or the posting states no term at all
+  (TERMS_NOT_STATED_PASSES; many internship postings never name the term);
+- location: an extracted location is in `radar.locations`, or `remote_ok` and `canada_eligible` are both
+  true. A posting with no extracted location passes only through the remote branch
+  (LOCATIONS_NOT_STATED_PASSES is False): an unknown location is not evidence of a Canadian office.
+- An empty `radar.terms` / `radar.locations` list in config.yaml switches that filter off (no preference).
+Config values are normalized with the same helpers as extraction ("summer '27" -> "Summer 2027",
+"Toronto" -> "Toronto, ON"), so they compare equal to the stored canonical forms.
+
+Score = cosine similarity `1 - (posting.embedding <=> resume.embedding)`, computed by pgvector; with a goal
+profile it is `0.8 * resume_sim + 0.2 * goal_sim`. Only postings whose embedding is current
+(`embedded_hash = content_hash`) are scored. Every run rescores *all* eligible postings (a few hundred
+rows, one UPDATE), so a new resume or goal takes effect on the next run without any bookkeeping. Open
+postings that are scored but no longer eligible (or whose embedding went stale) get `score = NULL`, so a
+stale score can never trigger a notification. Closed postings keep their last score (history only;
+notifications and `top` read open postings).
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Protocol
 
 from loguru import logger
-from sqlalchemy import select, update
+from sqlalchemy import ColumnElement, Text, and_, cast, func, literal, or_, select, true, update
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 
+from orbit.config import RadarConfig
 from orbit.core.router import ModelRouter
 from orbit.radar.extract import describe_error, truncate_description
+from orbit.radar.models import normalize_location, normalize_terms, to_naive_local
 from orbit.storage.db import Database
-from orbit.storage.models import EMBEDDING_DIM, Company, Posting
+from orbit.storage.models import EMBEDDING_DIM, Company, Posting, Profile
 
 EMBED_TASK = "embed"
 # ~6k chars is ~1.5k tokens: the opening of a posting (role, team, requirements) carries the signal;
@@ -47,6 +70,12 @@ MAX_BATCH_SIZE = 64
 EMBED_EXTRACTION_STATUSES = ("ok", "skipped")
 # Consecutive failed batches after which embed_pending stops (the rest stay pending for the next run).
 MAX_CONSECUTIVE_BATCH_ERRORS = 3
+
+# Scoring rule decisions (see the module docstring and docs/DECISIONS.md).
+TERMS_NOT_STATED_PASSES = True  # a posting that names no term passes the term filter
+LOCATIONS_NOT_STATED_PASSES = False  # ...but one with no location must qualify as remote + Canada-eligible
+RESUME_WEIGHT = 0.8  # score blend when a goal profile exists
+GOAL_WEIGHT = 0.2
 
 
 class EmbeddablePosting(Protocol):
@@ -198,3 +227,154 @@ def describe_embed(summary: EmbedSummary) -> str:
         f"in {summary.batches} batches"
     )
     return text + (" (aborted after repeated errors)" if summary.aborted else "")
+
+
+# ---- scoring (M5.4) ---------------------------------------------------------------------------------
+
+
+def wanted_terms(terms: Iterable[str]) -> list[str]:
+    """config.yaml terms in canonical "<Season> <YYYY>" form; an entry that can't be parsed is kept as written
+    (it then matches nothing) with a warning, so one typo never disables scoring."""
+    out: list[str] = []
+    for term in terms:
+        try:
+            values = normalize_terms([term])
+        except ValueError:
+            logger.warning("radar.terms: cannot normalize {!r}; it will not match any posting", term)
+            values = [term.strip()]
+        out += [v for v in values if v not in out]
+    return out
+
+
+def wanted_locations(locations: Iterable[str]) -> list[str]:
+    """config.yaml locations in canonical form ("Toronto" -> "Toronto, ON"); unparseable entries kept as written."""
+    out: list[str] = []
+    for location in locations:
+        try:
+            value = normalize_location(location)
+        except ValueError:
+            logger.warning("radar.locations: cannot normalize {!r}; it will not match any posting", location)
+            value = location.strip()
+        if value not in out:
+            out.append(value)
+    return out
+
+
+def _text_array(values: Sequence[str]) -> ColumnElement[Any]:
+    return cast(list(values), ARRAY(Text))
+
+
+_EMPTY_JSON_ARRAY = cast(literal("[]"), JSONB)
+
+
+def _flag(key: str) -> ColumnElement[bool]:
+    return Posting.extraction[key].astext == "true"
+
+
+def _not_stated(extracted: ColumnElement[Any]) -> ColumnElement[bool]:
+    """True when a JSONB list field is missing, null or `[]`."""
+    return func.coalesce(extracted, _EMPTY_JSON_ARRAY) == _EMPTY_JSON_ARRAY
+
+
+def internship_filter() -> ColumnElement[bool]:
+    """Open postings whose extraction succeeded and says it is an internship/co-op."""
+    return and_(Posting.status == "open", Posting.extraction_status == "ok", _flag("is_internship"))
+
+
+def term_filter(terms: Sequence[str]) -> ColumnElement[bool]:
+    """An extracted term is one of `terms` (canonical form), or the posting states no term
+    (TERMS_NOT_STATED_PASSES). Empty `terms` means no preference: always true."""
+    if not terms:
+        return true()
+    extracted = Posting.extraction["terms"]
+    overlap = extracted.has_any(_text_array(terms))
+    if not TERMS_NOT_STATED_PASSES:
+        return overlap
+    return or_(overlap, _not_stated(extracted))
+
+
+def location_filter(locations: Sequence[str]) -> ColumnElement[bool]:
+    """An extracted location is one of `locations` (canonical form), or the posting is remote and open to
+    Canada. Empty `locations` means no preference: always true."""
+    if not locations:
+        return true()
+    extracted = Posting.extraction["locations"]
+    branches = [
+        extracted.has_any(_text_array(locations)),
+        and_(_flag("remote_ok"), _flag("canada_eligible")),
+    ]
+    if LOCATIONS_NOT_STATED_PASSES:
+        branches.append(_not_stated(extracted))
+    return or_(*branches)
+
+
+def eligible_postings_filter(config: RadarConfig) -> ColumnElement[bool]:
+    """The radar's rule filters as one SQL condition: open internship with an ok extraction, wanted term,
+    wanted location. Can be NULL for odd rows, so negate it with `.is_not(True)`, never `not_()`."""
+    return and_(
+        internship_filter(),
+        term_filter(wanted_terms(config.terms)),
+        location_filter(wanted_locations(config.locations)),
+    )
+
+
+def _similarity(profile_kind: str) -> ColumnElement[float]:
+    """Cosine similarity between each posting and the stored `profile_kind` profile, computed by pgvector."""
+    profile = select(Profile.embedding).where(Profile.kind == profile_kind).scalar_subquery()
+    return 1 - Posting.embedding.cosine_distance(profile)
+
+
+@dataclass(frozen=True)
+class ScoreSummary:
+    scored: int = 0  # eligible postings with a current embedding that got a score this run
+    cleared: int = 0  # open postings whose old score was set to NULL (no longer eligible, or stale embedding)
+    no_resume: bool = False  # nothing done: no resume profile embedded yet
+    goal: bool = False  # the goal profile was blended in
+
+
+async def _embedded_profiles(db: Database) -> set[str]:
+    async with db.session() as s:
+        rows = await s.execute(select(Profile.kind).where(Profile.embedding.is_not(None)))
+        return {kind for (kind,) in rows}
+
+
+async def score_postings(db: Database, config: RadarConfig, *, now: datetime | None = None) -> ScoreSummary:
+    """Score every eligible posting against the resume (and goal) in SQL; clear scores of the others.
+
+    Two UPDATEs in one transaction; see the module docstring for the rules. Without an embedded resume
+    nothing is touched and `no_resume` is set.
+    """
+    profiles = await _embedded_profiles(db)
+    if "resume" not in profiles:
+        return ScoreSummary(no_resume=True)
+    with_goal = "goal" in profiles
+    stamp = to_naive_local(now) if now is not None else datetime.now().replace(microsecond=0)
+
+    score = _similarity("resume")
+    if with_goal:
+        score = RESUME_WEIGHT * score + GOAL_WEIGHT * _similarity("goal")
+    scorable = and_(
+        eligible_postings_filter(config),
+        Posting.embedding.is_not(None),
+        Posting.embedded_hash == Posting.content_hash,
+    )
+    async with db.session() as s:
+        scored = await s.execute(
+            update(Posting).where(scorable).values(score=score, scored_at=stamp).returning(Posting.id)
+        )
+        n_scored = len(scored.all())
+        cleared = await s.execute(
+            update(Posting)
+            .where(Posting.status == "open", Posting.score.is_not(None), scorable.is_not(True))
+            .values(score=None, scored_at=None)
+            .returning(Posting.id)
+        )
+        n_cleared = len(cleared.all())
+        await s.commit()
+    return ScoreSummary(scored=n_scored, cleared=n_cleared, goal=with_goal)
+
+
+def describe_score(summary: ScoreSummary) -> str:
+    if summary.no_resume:
+        return "no resume embedded yet"
+    return f"scored {summary.scored}, cleared {summary.cleared}" + (" (resume + goal)" if summary.goal else "")

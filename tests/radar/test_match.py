@@ -1,6 +1,8 @@
-"""Posting embeddings (M5.3): text format, batching, hash guard, skip rules, failures, pipeline and CLI.
+"""Posting embeddings (M5.3) and scoring (M5.4): text format, batching, hash guard, skip rules, failures,
+rule filters, cosine scores, pipeline and CLI.
 
 FakeProvider's embed returns deterministic 1536-d unit vectors seeded by the text (conftest.fake_embedding).
+Scoring tests use crafted vectors (`vec(0.8, 0.6)`) whose cosine similarities are known exactly.
 """
 
 from __future__ import annotations
@@ -24,12 +26,16 @@ from orbit.radar.extract import TRUNCATION_MARKER
 from orbit.radar.match import (
     MAX_EMBED_DESCRIPTION_CHARS,
     EmbedSummary,
+    ScoreSummary,
     embed_pending,
     embedding_text,
+    score_postings,
+    wanted_locations,
+    wanted_terms,
 )
 from orbit.radar.pipeline import describe, run_pipeline
 from orbit.storage.db import Database
-from orbit.storage.models import Company, Posting
+from orbit.storage.models import EMBEDDING_DIM, Company, Posting, Profile
 from tests.conftest import FakeProvider, fake_embedding, make_config
 from tests.radar.test_extract import GOOD, GOOD_NORMALIZED, make_router, reply
 from tests.radar.test_pipeline import _patch_runtime
@@ -419,3 +425,246 @@ def test_cli_embed_exit_1_after_repeated_failures(monkeypatch, tmp_path: Path, d
 
     assert result.exit_code == 1
     assert "failed 1" in result.output and "stopped after repeated embedding failures" in result.output
+
+
+# ---- scoring (M5.4) ---------------------------------------------------------------------------------
+
+
+def vec(*leading: float) -> list[float]:
+    """A 1536-d vector with the given leading components (unit length when they are)."""
+    return [*leading, *([0.0] * (EMBEDDING_DIM - len(leading)))]
+
+
+async def _profile(db: Database, kind: str, vector: list[float] | None) -> None:
+    async with db.session() as s:
+        s.add(Profile(kind=kind, text=f"{kind} text", text_hash=f"{kind}-hash", embedding=vector))
+        await s.commit()
+
+
+async def _set_profile(db: Database, kind: str, vector: list[float]) -> None:
+    async with db.session() as s:
+        await s.execute(update(Profile).where(Profile.kind == kind).values(embedding=vector))
+        await s.commit()
+
+
+def _scorable(company: Company, external_id: str, vector: list[float], **kw: Any) -> Posting:
+    """An eligible posting (Summer/Fall 2027, Toronto, internship) with a current embedding."""
+    kw.setdefault("embedded_hash", f"hash-{external_id}")
+    return _row(company, external_id, embedding=vector, **kw)
+
+
+def _with(**fields: Any) -> dict[str, Any]:
+    return {**GOOD_NORMALIZED, **fields}
+
+
+async def _scores(db: Database) -> dict[str, float | None]:
+    return {k: p.score for k, p in (await _rows(db)).items()}
+
+
+async def test_scores_are_cosine_similarity_to_the_resume(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    await _add(
+        db,
+        _scorable(company, "close", vec(0.9, 0.43588989)),  # cos = 0.9
+        _scorable(company, "middle", vec(0.5, 0.8660254)),  # cos = 0.5
+        _scorable(company, "orthogonal", vec(0.0, 1.0)),  # cos = 0
+        _scorable(company, "opposite", vec(-0.6, 0.8)),  # cos = -0.6
+        _scorable(company, "unnormalized", vec(3.0, 4.0)),  # cosine ignores length: 0.6
+    )
+
+    summary = await score_postings(db, RadarConfig(), now=NOW)
+
+    assert summary == ScoreSummary(scored=5)
+    rows = await _rows(db)
+    expected = {"close": 0.9, "middle": 0.5, "orthogonal": 0.0, "opposite": -0.6, "unnormalized": 0.6}
+    assert {k: p.score for k, p in rows.items()} == pytest.approx(expected, abs=1e-6)
+    assert {p.scored_at for p in rows.values()} == {NOW}
+    ranked = sorted(rows, key=lambda k: rows[k].score, reverse=True)
+    assert ranked == ["close", "unnormalized", "middle", "orthogonal", "opposite"]
+
+
+async def test_goal_is_blended_80_20(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    await _profile(db, "goal", vec(0.0, 1.0))
+    await _add(db, _scorable(company, "a", vec(0.8, 0.6)), _scorable(company, "b", vec(0.6, 0.8)))
+
+    summary = await score_postings(db, RadarConfig(), now=NOW)
+
+    assert summary == ScoreSummary(scored=2, goal=True)
+    # a: 0.8 * 0.8 + 0.2 * 0.6 = 0.76;  b: 0.8 * 0.6 + 0.2 * 0.8 = 0.64
+    assert await _scores(db) == pytest.approx({"a": 0.76, "b": 0.64}, abs=1e-6)
+    assert match.describe_score(summary) == "scored 2, cleared 0 (resume + goal)"
+
+
+async def test_goal_without_embedding_is_ignored(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    await _profile(db, "goal", None)
+    await _add(db, _scorable(company, "a", vec(0.8, 0.6)))
+
+    assert await score_postings(db, RadarConfig(), now=NOW) == ScoreSummary(scored=1)
+    assert await _scores(db) == pytest.approx({"a": 0.8}, abs=1e-6)
+
+
+async def test_rule_filters(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    v = vec(0.8, 0.6)
+    remote_canada = _with(locations=["San Francisco, CA"], remote_ok=True, canada_eligible=True)
+    remote_us = _with(locations=["Remote (US)"], remote_ok=True, canada_eligible=False)
+    await _add(
+        db,
+        _scorable(company, "eligible", v),
+        _scorable(company, "not_intern", v, extraction=NOT_INTERNSHIP),
+        _scorable(company, "wrong_term", v, extraction=_with(terms=["Winter 2027"])),
+        _scorable(company, "one_term_overlaps", v, extraction=_with(terms=["Winter 2027", "Fall 2027"])),
+        _scorable(company, "no_terms", v, extraction=_with(terms=[])),
+        _scorable(company, "waterloo", v, extraction=_with(locations=["Vancouver, BC", "Waterloo, ON"])),
+        _scorable(company, "wrong_city", v, extraction=_with(locations=["Vancouver, BC"])),
+        _scorable(company, "remote_canada", v, extraction=remote_canada),
+        _scorable(company, "remote_listed", v, extraction=_with(locations=["Remote (Canada)"], remote_ok=False)),
+        _scorable(company, "remote_us_only", v, extraction=remote_us),
+        _scorable(company, "no_location", v, extraction=_with(locations=[], remote_ok=False)),
+        _scorable(company, "no_location_remote", v, extraction=_with(locations=[], remote_ok=True)),
+        _scorable(company, "closed", v, status="closed", score=0.3, scored_at=NOW - timedelta(days=1)),
+        _scorable(company, "failed", v, extraction_status="failed", extraction=None, score=0.4),
+        _scorable(company, "prefiltered", v, extraction_status="skipped", extraction=SKIPPED, score=0.4),
+        _scorable(company, "stale_embedding", v, embedded_hash="hash-old", score=0.4),
+        _row(company, "not_embedded"),
+    )
+
+    summary = await score_postings(db, RadarConfig(), now=NOW)
+
+    scores = await _scores(db)
+    passing = {
+        "eligible", "one_term_overlaps", "no_terms", "waterloo", "remote_canada", "remote_listed",
+        "no_location_remote",
+    }
+    assert {k for k, score in scores.items() if score is not None} == passing | {"closed"}
+    assert all(scores[k] == pytest.approx(0.8, abs=1e-6) for k in passing)
+    assert scores["closed"] == 0.3  # closed postings keep their last score (history only)
+    assert summary == ScoreSummary(scored=len(passing), cleared=3)  # failed, prefiltered, stale_embedding
+    rows = await _rows(db)
+    assert rows["failed"].scored_at is None and rows["closed"].scored_at == NOW - timedelta(days=1)
+
+
+async def test_posting_that_stops_passing_the_filters_loses_its_score(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    await _add(db, _scorable(company, "a", vec(0.8, 0.6)), _scorable(company, "b", vec(0.6, 0.8)))
+    assert (await score_postings(db, RadarConfig(), now=NOW)).scored == 2
+
+    # The user narrows radar.terms: neither posting matches any more.
+    narrowed = RadarConfig(terms=["Winter 2028"])
+    assert await score_postings(db, narrowed, now=NOW) == ScoreSummary(scored=0, cleared=2)
+    assert await _scores(db) == {"a": None, "b": None}
+    assert (await score_postings(db, narrowed, now=NOW)).cleared == 0  # already NULL: nothing to clear
+
+
+async def test_every_run_rescores_so_a_new_resume_takes_effect(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    await _add(db, _scorable(company, "a", vec(0.8, 0.6)))
+    await score_postings(db, RadarConfig(), now=NOW)
+
+    await _set_profile(db, "resume", vec(0.0, 1.0))
+    later = NOW + timedelta(minutes=30)
+    assert await score_postings(db, RadarConfig(), now=later) == ScoreSummary(scored=1)
+
+    [row] = (await _rows(db)).values()
+    assert row.score == pytest.approx(0.6, abs=1e-6) and row.scored_at == later
+
+
+async def test_config_values_are_normalized_and_empty_lists_disable_a_filter(db: Database):
+    company = await _company(db)
+    await _profile(db, "resume", vec(1.0))
+    v = vec(1.0)
+    vancouver_winter = _with(terms=["Winter 2027"], locations=["Vancouver, BC"])
+    await _add(
+        db,
+        _scorable(company, "toronto_summer", v, extraction=_with(terms=["Summer 2027"])),
+        _scorable(company, "vancouver_winter", v, extraction=vancouver_winter),
+    )
+
+    loose = RadarConfig(terms=["summer '27"], locations=["toronto"])
+    assert wanted_terms(loose.terms) == ["Summer 2027"] and wanted_locations(loose.locations) == ["Toronto, ON"]
+    assert (await score_postings(db, loose, now=NOW)).scored == 1
+    assert (await score_postings(db, RadarConfig(terms=[], locations=[]), now=NOW)).scored == 2
+    # An entry that can't be parsed is kept as written: it matches nothing but doesn't break scoring.
+    assert wanted_terms(["Summer 2027", "whenever"]) == ["Summer 2027", "whenever"]
+    assert wanted_terms(["May-Dec 2027"]) == ["Summer 2027", "Fall 2027"]
+
+
+async def test_no_resume_is_a_no_op(db: Database):
+    company = await _company(db)
+    await _profile(db, "goal", vec(1.0))  # a goal alone is not enough
+    await _add(
+        db,
+        _scorable(company, "a", vec(1.0)),
+        _scorable(company, "b", vec(1.0), extraction=NOT_INTERNSHIP, score=0.5),
+    )
+
+    summary = await score_postings(db, RadarConfig(), now=NOW)
+
+    assert summary == ScoreSummary(no_resume=True)
+    assert await _scores(db) == {"a": None, "b": 0.5}  # untouched
+    assert match.describe_score(summary) == "no resume embedded yet"
+
+
+@pytest.fixture
+def warning_log():
+    from loguru import logger
+
+    messages: list[str] = []
+    sink = logger.add(lambda m: messages.append(m.record["message"]), level="WARNING")
+    yield messages
+    logger.remove(sink)
+
+
+async def test_pipeline_scores_after_embedding(db: Database, warning_log):
+    await _acme(db)
+    resume = fake_embedding("my resume")
+    await _profile(db, "resume", resume)
+    fake = FakeProvider("cheap", [reply(GOOD)])
+
+    summary = await _run(db, make_router(fake), FakeBoards(acme=acme_payload()))
+
+    assert summary.ok and summary.embed == EmbedSummary(embedded=1, batches=1)
+    assert summary.score == ScoreSummary(scored=1)
+    [row] = (await _rows(db)).values()
+    expected = sum(a * b for a, b in zip(_vector(row), resume, strict=True))  # both unit vectors
+    assert row.score == pytest.approx(expected, abs=1e-5) and row.scored_at == NOW
+    assert "score: scored 1, cleared 0" in describe(summary)
+    assert not [w for w in warning_log if "scoring skipped" in w]
+
+
+async def test_pipeline_without_resume_warns_once_and_scores_nothing(db: Database, warning_log):
+    await _acme(db)
+    fake = FakeProvider("cheap", [reply(GOOD)])
+
+    summary = await _run(db, make_router(fake), FakeBoards(acme=acme_payload()))
+
+    assert summary.ok and summary.score == ScoreSummary(no_resume=True)
+    assert [w for w in warning_log if "scoring skipped" in w] == [
+        "radar pipeline: scoring skipped: no resume embedded yet — run `orbit radar resume`"
+    ]
+    assert "score: no resume embedded yet" in describe(summary)
+    [row] = (await _rows(db)).values()
+    assert row.score is None
+
+
+async def test_pipeline_score_failure_is_isolated(db: Database, monkeypatch):
+    await _acme(db)
+
+    async def boom(*args: Any, **kw: Any) -> ScoreSummary:
+        raise RuntimeError("pgvector exploded")
+
+    monkeypatch.setattr(match, "score_postings", boom)
+    fake = FakeProvider("cheap", [reply(GOOD)])
+
+    summary = await _run(db, make_router(fake), FakeBoards(acme=acme_payload()))
+
+    assert summary.errors == {"score": "RuntimeError: pgvector exploded"}
+    assert summary.embed == EmbedSummary(embedded=1, batches=1) and summary.score is None

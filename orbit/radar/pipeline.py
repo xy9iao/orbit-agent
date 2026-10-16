@@ -1,4 +1,4 @@
-"""One radar run: poll every board, extract pending postings, embed them (M4.3, M5.3).
+"""One radar run: poll every board, extract pending postings, embed and score them (M4.3, M5.3, M5.4).
 
 `run_pipeline` is what the watcher calls every interval. Stages run in order and are isolated: each one
 is wrapped so an exception (DB hiccup, provider outage, bug) is logged and recorded in the summary,
@@ -12,8 +12,12 @@ Stages:
 3. embed: `match.embed_pending` over every extracted internship posting with a missing or stale
    embedding (no cap: embeddings are cheap, and the extract cap already bounds how many become
    eligible per run). Skipped with one warning when no provider serves the `embed` task.
+4. score: `match.score_postings` rescores every eligible posting against the resume (and goal) in SQL
+   and clears the scores of open postings that no longer pass the rule filters. Needs no API key, so it
+   runs even when embed was skipped (it then just refreshes existing scores). Without an embedded
+   resume it does nothing and logs one warning per run.
 
-Later milestones append stages (score M5.4, notify M6.1) the same way.
+Later milestones append stages (notify M6.1) the same way.
 
 Automatic retry of failed extractions: a posting that failed on a provider/network error stays
 `failed` until something retries it. Each run retries at most RETRY_FAILED_PER_POLL such postings
@@ -37,7 +41,7 @@ from orbit.config import RadarConfig
 from orbit.core.router import ModelRouter
 from orbit.radar import extract as ex, match
 from orbit.radar.extract import ExtractSummary, PendingPosting
-from orbit.radar.match import EmbedSummary, describe_embed
+from orbit.radar.match import EmbedSummary, ScoreSummary, describe_embed, describe_score
 from orbit.radar.models import to_naive_local
 from orbit.radar.poll import PollSummary, describe_error, poll_all
 from orbit.storage.db import Database
@@ -59,6 +63,7 @@ class PipelineSummary:
     extract: ExtractSummary | None = None
     retried: ExtractSummary | None = None  # automatic retry of old provider-error failures
     embed: EmbedSummary | None = None
+    score: ScoreSummary | None = None
     skipped: dict[str, str] = field(default_factory=dict)  # stage -> why it did not run
     errors: dict[str, str] = field(default_factory=dict)  # stage -> "Type: first line" of what it raised
     seconds: float = 0.0
@@ -155,7 +160,7 @@ async def run_pipeline(
     *,
     now: datetime | None = None,
 ) -> PipelineSummary:
-    """Poll, extract, embed. Never raises (except on cancellation); see the module docstring."""
+    """Poll, extract, embed, score. Never raises (except on cancellation); see the module docstring."""
     t0 = time.perf_counter()
     summary = PipelineSummary()
 
@@ -187,6 +192,14 @@ async def run_pipeline(
             summary.errors["embed"] = describe_error(e)
             logger.opt(exception=e).error("radar pipeline: embed stage failed: {}", summary.errors["embed"])
 
+    try:
+        summary.score = await match.score_postings(db, config, now=now)
+        if summary.score.no_resume:
+            logger.warning("radar pipeline: scoring skipped: no resume embedded yet — run `orbit radar resume`")
+    except Exception as e:  # noqa: BLE001
+        summary.errors["score"] = describe_error(e)
+        logger.opt(exception=e).error("radar pipeline: score stage failed: {}", summary.errors["score"])
+
     summary.seconds = time.perf_counter() - t0
     return summary
 
@@ -217,6 +230,8 @@ def describe(summary: PipelineSummary) -> str:
         parts.append(extract)
     if summary.embed is not None:
         parts.append(f"embed: {describe_embed(summary.embed)}")
+    if summary.score is not None:
+        parts.append(f"score: {describe_score(summary.score)}")
     for stage, reason in summary.skipped.items():
         parts.append(f"{stage}: skipped ({reason})")
     for stage, error in summary.errors.items():
