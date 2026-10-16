@@ -1,6 +1,6 @@
 """Seed companies: validate `seeds.yaml` and upsert it into `radar_companies` by slug.
 
-Ownership rules (docs/DECISIONS.md, "Company seeding"):
+Ownership rules:
 - the file owns slug, name, source, board_token and hq_city: seeding overwrites them;
 - the DB owns `active`: new rows start active, existing rows keep their flag unless the entry sets
   `active:` explicitly (so a company switched off in the DB stays off across re-seeds);

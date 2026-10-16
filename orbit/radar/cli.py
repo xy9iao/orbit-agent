@@ -12,7 +12,7 @@ from collections.abc import AsyncIterator, Callable, Coroutine
 from contextlib import AbstractAsyncContextManager, asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import typer
 from sqlalchemy.exc import SQLAlchemyError
@@ -20,6 +20,9 @@ from sqlalchemy.exc import SQLAlchemyError
 from orbit.config import Config, Settings, load_config
 from orbit.core.router import ModelRouter
 from orbit.storage.db import Database
+
+if TYPE_CHECKING:
+    from orbit.radar.sources import PoliteClient
 
 radar_app = typer.Typer(
     help="Internship Radar commands (run directly against the DB, not via the daemon)",
@@ -142,3 +145,32 @@ def seed(
     kept = [s for s in r.missing if s not in r.deactivated]
     if kept:
         typer.secho(f"in the DB but not in the file (left as is; --prune deactivates): {', '.join(kept)}", fg="yellow")
+
+
+def make_http_client() -> PoliteClient:
+    """The job-board HTTP client; tests swap this for one on httpx.MockTransport."""
+    from orbit.radar.sources import PoliteClient
+
+    return PoliteClient()
+
+
+@radar_app.command("verify-sources")
+def verify_sources_cmd(
+    source: str | None = typer.Option(None, "--source", "-s", help="Only check one board type"),
+    min_ok: int | None = typer.Option(
+        None, "--min-ok", help="Exit 1 if fewer companies pass (default: 20, or 1 with --source)"
+    ),
+) -> None:
+    """Fetch every active company's board live, report ok/error and posting counts, store last_verify_*."""
+    from orbit.radar.verify import format_report, verify_sources
+
+    threshold = min_ok if min_ok is not None else (20 if source is None else 1)
+
+    async def _main():
+        async with open_runtime() as rt, make_http_client() as client:
+            return await verify_sources(rt.db, client, source=source)
+
+    report = _run(_main())
+    typer.echo(format_report(report, threshold))
+    if report.ok_count < threshold:
+        raise typer.Exit(1)
