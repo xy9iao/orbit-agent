@@ -321,3 +321,34 @@ def extract(
             err=True,
         )
         raise typer.Exit(1)
+
+
+@radar_app.command()
+def embed(
+    limit: int | None = typer.Option(
+        None, "--limit", "-n", min=1, help="Postings to embed, newest first (default: all)"
+    ),
+) -> None:
+    """Embed extracted internship postings whose embedding is missing or stale (backfill; the watcher does it too).
+
+    Exit code 1 when no provider serves the 'embed' task or the run stopped after repeated batch failures.
+    """
+    from orbit.radar.match import describe_embed, embed_pending
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "embed")
+            t0 = time.perf_counter()
+            summary = await embed_pending(rt.db, rt.router, limit=limit)
+            return summary, time.perf_counter() - t0
+
+    summary, seconds = _run(_main())
+    typer.echo(f"embed: {describe_embed(summary)} ({seconds:.1f}s)")
+    if summary.aborted:
+        typer.secho(
+            "stopped after repeated embedding failures; the remaining postings stay pending (check the API key, "
+            "quota and network)",
+            fg="red",
+            err=True,
+        )
+        raise typer.Exit(1)

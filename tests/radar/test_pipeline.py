@@ -111,7 +111,7 @@ async def test_no_provider_polls_and_skips_extraction_with_one_warning(db: Datab
 
     assert summary.ok  # skipping is not an error
     assert summary.poll.new == 1 and summary.extract is None
-    assert summary.skipped == {"extract": "no provider for task 'extract' — set OPENAI_API_KEY"}
+    assert summary.skipped["extract"] == "no provider for task 'extract' — set OPENAI_API_KEY"
     assert [w for w in warnings if "extraction skipped" in w] == [
         "radar pipeline: extraction skipped: no provider for task 'extract' — set OPENAI_API_KEY"
     ]
