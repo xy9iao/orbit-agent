@@ -81,3 +81,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why at-most-once instead of at-least-once?** A: The cost of the two failure modes is lopsided. A missed alert is still visible in `orbit radar top` and chat search, while duplicate pings erode trust in the radar. Exactly-once isn't possible over Telegram's API, since a timeout can't tell you whether the message landed.
 - **Q: How do two concurrent pollers avoid both sending the same posting?** A: The claim is an atomic insert against a UNIQUE constraint. Only one transaction's INSERT returns the row, so only that poller builds an event for it.
+
+## Chat tools (`orbit/core/tools/radar.py`)
+1. `search_postings(query, filters)` and `set_radar_goal(text)` are plain async functions with `@tool`; the registry turns their type hints and docstrings into the JSON schema the chat model sees.
+2. The agent passes a `ToolContext` with the DB and (now) the router, so a tool can run SQL and call the `embed` task without importing app globals.
+3. Filters are validated and normalized with the same helpers as extraction ("toronto" → "Toronto, ON", "AI" → `ml_ai`); a bad filter returns `error: …` so the model can retry.
+4. With an embedding provider, the query is embedded and postings are ranked by pgvector cosine similarity; without one, a weighted whole-word keyword match ranks them instead.
+5. Results come back as compact JSON (company, title, terms, locations, score, URL, notified), which the model turns into a short answer for "any new AI co-ops in Toronto?".
+
+- **Q: Why return JSON from a tool instead of a formatted string?** A: The model is the formatter. Structured fields let it filter, summarize or answer follow-ups ("which of those are remote?") without re-parsing prose, and the `ranking` field lets it say how confident the ordering is.
+- **Q: How do you test an LLM tool loop without calling an LLM?** A: A scripted fake provider returns a tool call first and a final answer second; the test asserts on the tool result the agent fed back. That checks the real registry, schema, DB query and agent loop deterministically.
