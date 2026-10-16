@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 
 import pytest
+import yaml
 
 from orbit.core.providers.base import Response
 from orbit.core.router import ModelRouter
@@ -300,3 +301,36 @@ def test_label_item_is_a_posting_for_build_messages():
     user = build_messages(item, company=item.company)[1]["content"]
     assert "Company: Beta Corp" in user and "Department: not listed" in user
     assert "Location (as listed): Remote - Canada" in user
+
+
+# ---------------------------------------------------------------------------
+# The real label set (M4.5)
+# ---------------------------------------------------------------------------
+
+REAL_LABELS = Path(__file__).resolve().parent.parent.parent / "evals" / "radar_labels.yaml"
+
+
+def test_real_label_file_loads_and_stays_unverified():
+    labels = load_labels(REAL_LABELS)
+
+    assert labels.status == "UNVERIFIED — needs human review"
+    assert is_unverified(labels)
+    assert len(labels.items) == 30
+    interns = [i for i in labels.items if i.expected.is_internship]
+    assert len(interns) >= 12
+    assert len(labels.items) - len(interns) >= 8
+    assert {i.source for i in labels.items} == {"greenhouse", "lever", "ashby"}
+    assert all(i.description_text and len(i.description_text) <= 6000 for i in labels.items)
+    for item in labels.items:  # ids follow <source>:<company_slug>:<external_id>
+        assert item.id.startswith(item.source + ":") and item.id.count(":") >= 2
+
+    text = dry_run(labels)
+    assert UNVERIFIED_BANNER in text
+    assert f"Items: 30 ({len(interns)} internship, {30 - len(interns)} non-internship)" in text
+
+
+def test_real_labels_are_written_in_canonical_form():
+    """A label that normalization would change is a typo risk: the reviewer sees one value, eval scores another."""
+    raw = yaml.safe_load(REAL_LABELS.read_text(encoding="utf-8"))
+    for raw_item, item in zip(raw["items"], load_labels(REAL_LABELS).items, strict=True):
+        assert raw_item["expected"] == item.expected.model_dump(mode="json"), item.id
