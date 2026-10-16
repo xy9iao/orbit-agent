@@ -61,3 +61,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why report per-field accuracy instead of one overall score?** A: Fields fail differently: `is_internship` is usually easy, while `terms` and `locations` depend on messy text and normalization. Per-field numbers show exactly which prompt rule or validator to fix.
 - **Q: Why both exact set match and Jaccard for list fields?** A: Exact match is the honest bar (a missing location can break a filter), but it's harsh on long lists like tech stacks. Jaccard shows whether the model is close or way off.
+
+## Matching (`orbit/radar/profile.py`, `orbit/radar/match.py`)
+1. Your resume (and an optional goal sentence) is embedded once through the router's `embed` task and stored in `radar_profile`; it's re-embedded only when its text hash changes.
+2. Each extracted internship posting gets an embedding of its title, company, extracted fields and description, stored in a pgvector `vector(1536)` column.
+3. Rule filters run in SQL on the JSONB extraction: open, `is_internship`, a term you want (or none stated), and a location you want (or remote and Canada-eligible).
+4. Eligible postings are scored in one UPDATE as `1 - (embedding <=> resume_embedding)` (cosine similarity), blended 0.8/0.2 with goal similarity when a goal exists; postings that stop qualifying have their score cleared.
+5. `orbit radar top N` lists the best open matches, with a line marking the notify threshold, so you can see which postings would be pushed.
+
+- **Q: Why filter with rules before ranking by similarity?** A: Embeddings measure topical closeness, not eligibility. A senior ML role in San Francisco can sit very close to an ML resume. Hard constraints (internship, term, location) belong in exact filters, and similarity only ranks what's left.
+- **Q: Why compute cosine similarity in Postgres instead of in Python?** A: pgvector's `<=>` runs where the data lives, so one UPDATE scores every posting without moving thousands of 1536-float vectors over the wire. The same operator later works with an HNSW index if the table grows.
