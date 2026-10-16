@@ -53,8 +53,8 @@ watchers:
 
 # Internship Radar preferences (used by the internship_radar watcher and `orbit radar ...`).
 radar:
-  # Work terms you want, as "<Season> <YYYY>". Add "Winter 2027" if your next co-op term is in winter.
-  terms: ["Summer 2027", "Fall 2027"]
+  # Work terms you want, as "<Season> <YYYY>" (Winter = Jan-Apr, Summer = May-Aug, Fall = Sep-Dec).
+  terms: ["Winter 2027", "Summer 2027"]
   # A posting passes when an extracted location is listed here, or it is remote and open to Canada.
   # Formats: "City, XX" (two-letter province/state) or "Remote (Canada)".
   locations: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
