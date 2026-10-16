@@ -247,7 +247,7 @@ stores a free-text goal ("ML infrastructure, Toronto, summer 2027") that is blen
 
 | Key | Default | Meaning |
 |---|---|---|
-| `terms` | `["Summer 2027", "Fall 2027"]` | Work terms you want, as `"<Season> <YYYY>"`. Postings whose terms are unstated still pass. |
+| `terms` | `["Winter 2027", "Summer 2027"]` | Work terms you want, as `"<Season> <YYYY>"`. Postings whose terms are unstated still pass. |
 | `locations` | Toronto, Waterloo, Kitchener, `Remote (Canada)` | A posting passes if an extracted location is listed, or it is remote and open to Canada. Format `"City, XX"`. |
 | `notify_threshold` | `0.45` (placeholder) | Minimum score that gets pushed to Telegram. Calibrate it (see above). |
 | `resume_path` | `data/resume.md` | Resume file, relative to `ORBIT_HOME`. |
