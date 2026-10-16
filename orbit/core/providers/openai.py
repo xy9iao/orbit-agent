@@ -12,7 +12,7 @@ from .base import EmbedResponse, Response, ToolCall
 
 
 class OpenAIProvider:
-    def __init__(self, name: str, base_url: str, api_key: str, proxy: str | None = None):
+    def __init__(self, name: str, base_url: str | None, api_key: str, proxy: str | None = None):
         self.name = name
         http_client = httpx.AsyncClient(proxy=proxy, timeout=120) if proxy else None
         self._client = AsyncOpenAI(base_url=base_url, api_key=api_key, http_client=http_client)
@@ -24,6 +24,8 @@ class OpenAIProvider:
         tools: list[dict[str, Any]] | None = None,
         **params: Any,
     ) -> Response:
+        # provider_blocks belongs to other providers' turns (see Response); the OpenAI API rejects unknown keys.
+        messages = [{k: v for k, v in m.items() if k != "provider_blocks"} for m in messages]
         kwargs: dict[str, Any] = {"model": model, "messages": messages, **params}
         if tools:
             kwargs["tools"] = tools

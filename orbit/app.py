@@ -94,6 +94,7 @@ class OrbitApp:
         if self.config.jobs.startup_notice and "telegram" in self.channels:
             await self.push(f"Orbit 已上线 ({datetime.now().strftime('%m-%d %H:%M')})")
         logger.info("Orbit is online. tools: {}", ", ".join(registry.names()))
+        logger.info("model routes: {}", self.router.describe_routes())
 
     async def stop(self) -> None:
         logger.info("Orbit shutting down")

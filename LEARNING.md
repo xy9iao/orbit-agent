@@ -102,6 +102,26 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: Why isolate pipeline stages instead of letting an exception abort the run?** A: The stages have different failure causes (a board outage, an LLM quota, a missing resume). Isolating them means a broken embedding key still lets polling keep postings fresh and closes the ones that disappeared, and the summary shows exactly which stage failed.
 - **Q: How is p90 latency computed in Postgres?** A: `percentile_cont(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM sent_at - first_seen_at))`, an ordered-set aggregate that interpolates between neighbouring values. Only `sent` rows count, since failed or expired rows have no real delivery time.
 
+## Anthropic provider (`orbit/core/providers/anthropic.py`)
+1. `AnthropicProvider` implements the same `Provider` protocol as the OpenAI one, so the router picks it per task from `config.yaml` (`type: anthropic`) and no call site changed.
+2. It translates OpenAI-format messages: `system` turns become the top-level system prompt, `tool_calls` become `tool_use` blocks, and consecutive `tool` turns become `tool_result` blocks in one user turn.
+3. Tools map to `{name, description, input_schema}` and `tool_choice` is never sent, so Claude decides when to call one; with no tools, tool history is sent as text.
+4. The radar's `response_format` json_schema becomes structured outputs (`output_config.format`, through the SDK's `transform_schema`); `effort` maps to `output_config.effort`, and `cache_system` puts a `cache_control` breakpoint on the system prompt.
+5. A turn that called tools keeps its raw content blocks (`provider_blocks`), so thinking blocks and their signatures go back verbatim in the next request, as the API requires; the OpenAI provider strips that key.
+
+- **Q: Why must thinking blocks be sent back during a tool loop?** A: With thinking on, the API checks that the assistant turn holding `tool_use` still has the thinking that led to it (signed, so it can't be edited). Rebuilding the turn from text and tool calls alone loses it and the request is rejected.
+- **Q: When does prompt caching actually save money?** A: Only when the cached prefix is at least the model's minimum (512 tokens on Haiku 5.5) and the same prefix repeats within the cache lifetime (5 minutes by default). Then reads cost 0.1× input, but the first write costs 1.25×, so a prefix used once costs more than no caching.
+
+## Batch re-extraction (`orbit/radar/reextract.py`, `orbit radar reextract`)
+1. After the `extract` route changes model, every open posting whose extraction is `ok` is sent again as one Anthropic Message Batch, built with the same request as live extraction (`AnthropicProvider.build_request`), at half the token price.
+2. The batch id and each posting's `content_hash` go into kv (`radar:reextract`) before waiting, so an interrupted run resumes the same batch instead of paying twice.
+3. Results are matched back by `custom_id` (`posting-<id>`) and written with the usual content_hash guard; an errored or invalid result keeps the old extraction, since a batch has no retry round.
+4. If a field that feeds the embedding text changed (terms, locations, role_type, tech_stack), `embedded_hash` is cleared so `embed_pending` re-embeds that posting; then `score_postings` rescores everything.
+5. It never notifies: the watcher's next poll does, and `radar_notifications.posting_id` is UNIQUE, so a posting already notified is never sent again.
+
+- **Q: When is a batch API the right call instead of concurrent requests?** A: When nobody waits on the answer: a backfill or re-run of hundreds of items. It halves the price and avoids rate-limit juggling, at the cost of latency (minutes to hours, up to 24 h), so the live 30-minute poll keeps using normal requests.
+- **Q: How do you make an asynchronous batch job safe to interrupt?** A: Persist the job id and the inputs' versions before waiting, make the collect step idempotent (it writes only where the content hash still matches, then clears the saved state), and on restart resume the saved job instead of submitting a new one.
+
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.
