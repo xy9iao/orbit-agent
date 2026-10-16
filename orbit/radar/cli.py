@@ -481,3 +481,26 @@ def top(
     against = "resume + goal" if scoring.goal else "resume"
     typer.echo(f"top {len(matches)} open matches by cosine similarity to your {against}:")
     typer.echo(_printable(format_top(matches, cut, counts)))
+
+
+@radar_app.command()
+def stats(
+    as_json: bool = typer.Option(False, "--json", help="Print the metrics as JSON instead of text"),
+) -> None:
+    """Print the radar metrics: companies, postings, extraction accuracy, notification latency, uptime.
+
+    Read-only and needs no API key. Accuracy comes from the last `orbit radar eval` run.
+    """
+    import json
+
+    from orbit.radar.stats import collect_stats, format_stats
+
+    async def _main():
+        async with open_runtime() as rt:
+            return await collect_stats(rt.db)
+
+    result = _run(_main())
+    if as_json:
+        typer.echo(json.dumps(result.to_dict(), indent=2))  # ensure_ascii (the default) is safe on any console
+    else:
+        typer.echo(_printable(format_stats(result)))
