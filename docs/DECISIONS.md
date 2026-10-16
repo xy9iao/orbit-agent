@@ -110,3 +110,18 @@
 - **Chose:** exit code 1 only when every polled company failed (0 on partial failure and when there is nothing to poll). `--company` accepts only active slugs and combines with `--source` as an intersection. An unknown `--source` is rejected before the DB opens. With no PATH, `orbit radar resume` uses `orbit_home / radar.resume_path`.
 - **Why:** this matches the watcher, where one stale board never fails a poll. Polling an inactive company would leave its postings open forever, because nothing else would poll it to close them.
 - **When it fails:** a partial outage shows only as ERROR lines and the failed count in the totals. To poll a deactivated board, re-activate it in seeds.yaml first. A missing default resume costs a DB connect before the "not found" error.
+
+## Pipeline stages and retries (M4.3)
+- **Chose:** `run_pipeline` runs poll → extract → embed, each stage in its own try/except; a missing provider skips the stage with one warning per run. Each run also retries at most 3 open postings whose extraction failed on a provider error at least 6 hours ago, one at a time, stopping at the first error. Postings whose model reply was invalid twice (error prefixed `after retry:`) are never retried automatically. `orbit radar extract --limit` defaults to `max_extract_per_poll`.
+- **Why:** network failures heal over time, while the same prompt will likely fail validation again. The cap keeps the cost tiny.
+- **When it fails:** a posting that always gets a provider error is retried about 4 times a day forever (one call each). Invalid-reply postings need `orbit radar extract --retry-failed`. A large backfill takes several runs.
+
+## Which postings get embeddings (M5.3)
+- **Chose:** only open postings whose extraction succeeded with `is_internship = true`, and whose `embedded_hash` differs from `content_hash`. The embedding text is the title, company, extracted terms/locations/role/stack, then the description cut near 6,000 chars. Batches of at most 64 run outside any transaction and are written with a content-hash guard. Three failed batches in a row stop the run.
+- **Why:** waiting for extraction means the vector includes the extracted fields and isn't redone right after; non-internships are never scored or notified. (Cost is not the real reason: text-embedding-3-small is cheap. Scope is.)
+- **When it fails:** chat search (M6.2) can't rank non-internship or not-yet-extracted postings by similarity, so it falls back to keyword or recency for those. Changing the text format doesn't change `content_hash`, so re-embedding everything needs `UPDATE radar_postings SET embedded_hash = NULL`.
+
+## Eval harness (M4.4, M4.5)
+- **Chose:** eval calls `extract_posting` directly, without the prefilter, so it measures the model. An outage (3 provider errors in a row) aborts with no saved score, while an invalid reply counts as wrong on every field. Label files are validated strictly (unknown or missing keys, duplicate ids, snapshots over 6,000 chars), and labels must already be in canonical form. Snapshots are capped at 6,000 chars against production's 12,000. The CLI replaces characters the console can't print. For `remote_ok`, if the text says this position is hybrid, it is false even when the board tag says Remote.
+- **Why:** an outage must not be stored as 0% accuracy, a typo must not silently drop a field, and the reviewer must see exactly the value being scored.
+- **When it fails:** `is_internship` accuracy says nothing about the prefilter. A few long postings lose late sections in the snapshot, so scores measure slightly shorter inputs than production. Adding a new key to the label format needs a code change.

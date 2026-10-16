@@ -51,3 +51,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: How do you know which rows `INSERT … ON CONFLICT DO UPDATE` inserted vs updated?** A: `RETURNING (xmax = 0) AS inserted`: a freshly inserted row has no deleting/updating transaction id, while an updated row's old version sets `xmax`. Combined with a pre-read of the old hashes, that also tells changed from unchanged rows.
 - **Q: Why must a failed fetch never close postings?** A: "Missing from the response" only means "gone" when the response is complete. Closing on a 500 or timeout would mark every posting closed and then reopen them all on the next poll, churning state and stats.
+
+## Eval (`orbit/radar/eval.py`, `evals/radar_labels.yaml`)
+1. A YAML label file holds 30 real posting snapshots with hand-written expected values for the seven extraction fields; until a human reviews it, its status says UNVERIFIED and every report prints a warning banner.
+2. `orbit radar eval` runs the same `extract_posting` call production uses on each snapshot (3 at a time) and compares the result field by field.
+3. Booleans and the role enum score by exact match; list fields (terms, locations, tech stack) score by exact set equality after normalization, with mean Jaccard overlap as a softer second number.
+4. A failed extraction counts as wrong on every field, but an outage (3 provider errors in a row) aborts without saving, so it can't masquerade as 0% accuracy.
+5. The summary is stored in kv `radar:last_eval`, and `orbit radar stats` reads it for the per-field accuracy metric.
+
+- **Q: Why report per-field accuracy instead of one overall score?** A: Fields fail differently: `is_internship` is usually easy, while `terms` and `locations` depend on messy text and normalization. Per-field numbers show exactly which prompt rule or validator to fix.
+- **Q: Why both exact set match and Jaccard for list fields?** A: Exact match is the honest bar (a missing location can break a filter), but it's harsh on long lists like tech stacks. Jaccard shows whether the model is close or way off.
