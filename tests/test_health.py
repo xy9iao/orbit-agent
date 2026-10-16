@@ -23,6 +23,7 @@ def make_app(tmp_path: Path, db: Database) -> OrbitApp:
     settings = Settings(_env_file=None, orbit_home=tmp_path, database_url=db.url, openai_api_key=None)
     app = OrbitApp(settings, make_config())
     app.db = db
+    app.agent.db = db  # the Agent captured the unconnected original at construction
     app.memory.ensure()
     return app
 

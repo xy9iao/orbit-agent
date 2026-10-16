@@ -266,7 +266,6 @@ async def e2e(tmp_path: Path, db: Database):
     chat = FakeProvider("openai")
     app.router = ModelRouter(app.config, {"openai": chat, "cheap": llm}, usage_sink=app._record_usage)
     app.agent.router = app.router
-    app.agent.db = db  # make_app swaps app.db after the Agent captured the unconnected original
     channel = FakeTelegram()
     app.channels["telegram"] = channel
 
