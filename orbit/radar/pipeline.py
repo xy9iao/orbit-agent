@@ -1,4 +1,5 @@
-"""One radar run: poll every board, extract pending postings, embed and score them (M4.3, M5.3, M5.4).
+"""One radar run: poll every board, extract pending postings, embed and score them, then claim new
+matches for notification (M4.3, M5.3, M5.4, M6.1).
 
 `run_pipeline` is what the watcher calls every interval. Stages run in order and are isolated: each one
 is wrapped so an exception (DB hiccup, provider outage, bug) is logged and recorded in the summary,
@@ -17,7 +18,11 @@ Stages:
    runs even when embed was skipped (it then just refreshes existing scores). Without an embedded
    resume it does nothing and logs one warning per run.
 
-Later milestones append stages (notify M6.1) the same way.
+5. notify (M6.1), only when the caller passes `notify=True` (the watcher, which pushes the events):
+   `notify.notify_matches` claims open postings above `radar.notify_threshold` that were never notified
+   (plus due retries) and renders them as `Event`s, exposed as `summary.events`. Needs no API key. Off
+   by default because a claimed posting that nobody pushes is never offered again (at-most-once, see
+   notify.py), so only a caller that will push the events may claim them.
 
 Automatic retry of failed extractions: a posting that failed on a provider/network error stays
 `failed` until something retries it. Each run retries at most RETRY_FAILED_PER_POLL such postings
@@ -39,11 +44,13 @@ from sqlalchemy import func, or_, select
 
 from orbit.config import RadarConfig
 from orbit.core.router import ModelRouter
-from orbit.radar import extract as ex, match
+from orbit.radar import extract as ex, match, notify as nt
 from orbit.radar.extract import ExtractSummary, PendingPosting
 from orbit.radar.match import EmbedSummary, ScoreSummary, describe_embed, describe_score
 from orbit.radar.models import to_naive_local
+from orbit.radar.notify import NotifySummary, describe_notify
 from orbit.radar.poll import PollSummary, describe_error, poll_all
+from orbit.scheduler.watchers.base import Event
 from orbit.storage.db import Database
 from orbit.storage.models import Company, Posting
 
@@ -64,9 +71,15 @@ class PipelineSummary:
     retried: ExtractSummary | None = None  # automatic retry of old provider-error failures
     embed: EmbedSummary | None = None
     score: ScoreSummary | None = None
+    notify: NotifySummary | None = None
     skipped: dict[str, str] = field(default_factory=dict)  # stage -> why it did not run
     errors: dict[str, str] = field(default_factory=dict)  # stage -> "Type: first line" of what it raised
     seconds: float = 0.0
+
+    @property
+    def events(self) -> list[Event]:
+        """Notification events for the scheduler to push (empty unless the notify stage ran)."""
+        return list(self.notify.events) if self.notify is not None else []
 
     @property
     def ok(self) -> bool:
@@ -159,8 +172,10 @@ async def run_pipeline(
     config: RadarConfig,
     *,
     now: datetime | None = None,
+    notify: bool = False,
 ) -> PipelineSummary:
-    """Poll, extract, embed, score. Never raises (except on cancellation); see the module docstring."""
+    """Poll, extract, embed, score, then notify if asked. Never raises (except on cancellation); see the
+    module docstring."""
     t0 = time.perf_counter()
     summary = PipelineSummary()
 
@@ -200,6 +215,13 @@ async def run_pipeline(
         summary.errors["score"] = describe_error(e)
         logger.opt(exception=e).error("radar pipeline: score stage failed: {}", summary.errors["score"])
 
+    if notify:
+        try:
+            summary.notify = await nt.notify_matches(db, config, now=now)
+        except Exception as e:  # noqa: BLE001
+            summary.errors["notify"] = describe_error(e)
+            logger.opt(exception=e).error("radar pipeline: notify stage failed: {}", summary.errors["notify"])
+
     summary.seconds = time.perf_counter() - t0
     return summary
 
@@ -232,6 +254,8 @@ def describe(summary: PipelineSummary) -> str:
         parts.append(f"embed: {describe_embed(summary.embed)}")
     if summary.score is not None:
         parts.append(f"score: {describe_score(summary.score)}")
+    if summary.notify is not None:
+        parts.append(f"notify: {describe_notify(summary.notify)}")
     for stage, reason in summary.skipped.items():
         parts.append(f"{stage}: skipped ({reason})")
     for stage, error in summary.errors.items():

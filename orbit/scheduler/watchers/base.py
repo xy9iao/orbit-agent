@@ -12,7 +12,10 @@ then enable it in config.yaml:
 Optional lifecycle hooks (default no-ops, so a watcher that only defines `check` keeps working):
     bind(orbit)  - called once by the scheduler right after construction, with the OrbitApp
                    (settings, config, router, db), before the first check;
-    close()      - awaited by the scheduler on shutdown to release clients or connections.
+    close()      - awaited by the scheduler on shutdown to release clients or connections;
+    on_pushed(event, ok)
+                 - awaited by the scheduler after it pushed each event `check` returned, with
+                   `OrbitApp.push`'s result (True = some channel delivered it). Errors are logged.
 """
 
 from __future__ import annotations
@@ -43,6 +46,9 @@ class Watcher:
 
     async def close(self) -> None:
         """Release resources on shutdown. Default: nothing to release."""
+
+    async def on_pushed(self, event: Event, ok: bool) -> None:
+        """Delivery result of one event returned by `check`. Default: ignore it."""
 
     async def check(self, db: Database) -> list[Event]:
         raise NotImplementedError

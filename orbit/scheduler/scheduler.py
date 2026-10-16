@@ -123,8 +123,15 @@ class OrbitScheduler:
         except Exception:
             logger.exception("watcher {} failed", watcher.name)
             return
+        on_pushed = getattr(watcher, "on_pushed", None)  # optional hook; duck-typed watchers may lack it
         for ev in events:
-            await self.orbit.push(f"[{watcher.name}] {ev.title}\n{ev.body}".strip())
+            ok = await self.orbit.push(f"[{watcher.name}] {ev.title}\n{ev.body}".strip())
+            if on_pushed is None:
+                continue
+            try:
+                await on_pushed(ev, ok)
+            except Exception:
+                logger.exception("watcher {} on_pushed failed", watcher.name)
 
     # ---- introspection -----------------------------------------------------
     def jobs(self) -> list[dict[str, Any]]:
