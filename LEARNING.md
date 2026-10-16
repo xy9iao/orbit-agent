@@ -91,3 +91,23 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why return JSON from a tool instead of a formatted string?** A: The model is the formatter. Structured fields let it filter, summarize or answer follow-ups ("which of those are remote?") without re-parsing prose, and the `ranking` field lets it say how confident the ordering is.
 - **Q: How do you test an LLM tool loop without calling an LLM?** A: A scripted fake provider returns a tool call first and a final answer second; the test asserts on the tool result the agent fed back. That checks the real registry, schema, DB query and agent loop deterministically.
+
+## Pipeline, radar CLI and stats (`orbit/radar/pipeline.py`, `orbit/radar/cli.py`, `orbit/radar/stats.py`)
+1. `run_pipeline` is the radar's single entry point: poll → extract → embed → score → notify, each stage in its own try/except so one failure (or a missing API key) never stops the others.
+2. The 30-minute watcher and the `orbit radar poll/extract/embed` commands call the same functions, so manual runs behave exactly like the daemon.
+3. Radar CLI commands open their own DB engine and router from `.env`/`config.yaml` (not the daemon's HTTP API), so they work while the daemon is down; tests swap that runtime for a test DB and fake providers.
+4. `orbit radar stats` computes the project metrics with plain SQL: companies tracked, postings stored, per-field eval accuracy, notification latency (median/p90 via `percentile_cont`) and uptime days (distinct days with a successful poll).
+5. Output is plain text made safe for non-UTF-8 Windows consoles, with `--json` for machine-readable use.
+
+- **Q: Why isolate pipeline stages instead of letting an exception abort the run?** A: The stages have different failure causes (a board outage, an LLM quota, a missing resume). Isolating them means a broken embedding key still lets polling keep postings fresh and closes the ones that disappeared, and the summary shows exactly which stage failed.
+- **Q: How is p90 latency computed in Postgres?** A: `percentile_cont(0.9) WITHIN GROUP (ORDER BY EXTRACT(EPOCH FROM sent_at - first_seen_at))`, an ordered-set aggregate that interpolates between neighbouring values. Only `sent` rows count, since failed or expired rows have no real delivery time.
+
+## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
+1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
+2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.
+3. `.env` is optional for Compose, so CI can validate the file, and `environment` overrides the host-oriented `DATABASE_URL` inside the container.
+4. The EC2 kit (`deploy/`) is prepared but never run by agents. An idempotent script installs Docker, refuses unsafe `.env` files, backs up before each deploy, waits for `/health` and can roll back with `--ref`.
+5. The production override drops the published Postgres port, adds restart policies, log rotation and memory limits, and nightly `pg_dump` backups are verified with `pg_restore --list`.
+
+- **Q: Why `exec` in the entrypoint and `STOPSIGNAL SIGINT`?** A: Without `exec`, the shell is PID 1 and swallows signals. Orbit only shuts down cleanly on KeyboardInterrupt, so the container sends SIGINT and Orbit gets to stop the scheduler and close the DB.
+- **Q: Why bind ports to 127.0.0.1 even on a server?** A: Nothing needs inbound access. Telegram long polling is outbound only, and the operator reaches `/health` through an SSH tunnel. Not listening publicly removes a whole class of exposure.
