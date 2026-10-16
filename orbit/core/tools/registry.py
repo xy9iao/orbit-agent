@@ -11,13 +11,15 @@ import json
 import re
 import types
 import typing
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 if TYPE_CHECKING:
     from orbit.core.memory import MemoryStore
+    from orbit.core.router import ModelRouter
     from orbit.scheduler.scheduler import OrbitScheduler
     from orbit.storage.db import Database
 
@@ -28,10 +30,11 @@ class ToolContext:
 
     channel: str
     chat_id: str
-    db: "Database"
-    memory: "MemoryStore"
-    scheduler: "OrbitScheduler | None" = None
+    db: Database
+    memory: MemoryStore
+    scheduler: OrbitScheduler | None = None
     extra: dict[str, Any] = field(default_factory=dict)
+    router: ModelRouter | None = None  # for tools that need the model (e.g. embeddings); None in bare contexts
 
 
 @dataclass
@@ -70,31 +73,45 @@ def _json_type(annotation: Any) -> dict[str, Any]:
     if origin in (types.UnionType, typing.Union):
         args = [a for a in typing.get_args(annotation) if a is not type(None)]
         return _json_type(args[0]) if args else {"type": "string"}
-    if origin in (list, typing.List):
+    if origin is list:
         inner = typing.get_args(annotation)
         return {"type": "array", "items": _json_type(inner[0]) if inner else {"type": "string"}}
-    if origin in (dict, typing.Dict):
+    if origin is dict:
         return {"type": "object"}
     return {"type": _TYPE_MAP.get(annotation, "string")}
 
 
 def _parse_docstring(doc: str | None) -> tuple[str, dict[str, str]]:
-    """First paragraph = description; 'name: text' lines under 'Args:' = param docs."""
+    """First paragraph = description; 'name: text' lines under 'Args:' = param docs.
+
+    A line indented deeper than the param lines continues the previous param's text (Google style), so a
+    long description can wrap, and an indented 'key: text' line inside it is not mistaken for a param.
+    """
     if not doc:
         return "", {}
-    lines = [ln.strip() for ln in inspect.cleandoc(doc).splitlines()]
+    raw_lines = inspect.cleandoc(doc).splitlines()
     desc_lines: list[str] = []
     params: dict[str, str] = {}
     in_args = False
     desc_done = False
-    for ln in lines:
+    arg_indent: int | None = None
+    current: str | None = None
+    for raw in raw_lines:
+        ln = raw.strip()
         if ln.lower().rstrip(":") in ("args", "arguments", "params", "parameters"):
             in_args = True
             continue
         if in_args:
+            if not ln:
+                continue
+            indent = len(raw) - len(raw.lstrip())
+            if current is not None and arg_indent is not None and indent > arg_indent:
+                params[current] += " " + ln
+                continue
             m = re.match(r"^(\w+)\s*(?:\([^)]*\))?\s*:\s*(.+)$", ln)
             if m:
-                params[m.group(1)] = m.group(2)
+                arg_indent, current = indent, m.group(1)
+                params[current] = m.group(2)
             continue
         if ln == "" and desc_lines:
             desc_done = True  # first paragraph only

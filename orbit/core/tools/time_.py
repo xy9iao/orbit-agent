@@ -15,5 +15,6 @@ def now_text() -> str:
 
 @tool
 def current_time() -> str:
-    """Get the current local date, time, weekday and timezone. Call this before computing any relative time such as "in 10 minutes" or "tomorrow 9am"."""
+    """Get the current local date, time, weekday and timezone.
+    Call this before computing any relative time such as "in 10 minutes" or "tomorrow 9am"."""
     return now_text()

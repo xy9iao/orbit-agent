@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from loguru import logger
 
@@ -26,7 +27,7 @@ class ModelRouter:
     @classmethod
     def from_config(
         cls, config: Config, settings: Settings, usage_sink: UsageSink | None = None
-    ) -> "ModelRouter":
+    ) -> ModelRouter:
         providers: dict[str, Provider] = {}
         for name, pc in config.providers.items():
             key = settings.api_key_for(pc.api_key_env)
@@ -69,3 +70,19 @@ class ModelRouter:
                 resp.usage.get("completion_tokens", 0),
             )
         return resp
+
+    async def embed(self, task: str, texts: list[str], **overrides: Any) -> list[list[float]]:
+        """Embed `texts` with the task's model; returns one vector per text, in input order."""
+        if not texts:
+            return []
+        provider, model, params = self.resolve(task)
+        params.update(overrides)
+        logger.debug("router: embed task={} -> {}:{} ({} texts)", task, provider.name, model, len(texts))
+        resp = await provider.embed(model, texts, **params)
+        if len(resp.vectors) != len(texts):
+            raise RuntimeError(
+                f"provider '{provider.name}' returned {len(resp.vectors)} vectors for {len(texts)} texts"
+            )
+        if self.usage_sink and resp.usage:
+            await self.usage_sink(task, provider.name, model, resp.usage.get("prompt_tokens", 0), 0)
+        return resp.vectors

@@ -1,0 +1,62 @@
+# Three-item label file for tests/radar/test_eval.py. Same format as evals/radar_labels.yaml
+# (documented in orbit/radar/eval.py). Expected values are deliberately written in sloppy forms
+# ("summer '27", "Toronto, Ontario, Canada", "Machine Learning", "k8s") to exercise normalization.
+status: "UNVERIFIED — needs human review"
+version: 1
+notes: "Test fixture: synthetic postings."
+items:
+  - id: "greenhouse:acme:1001"
+    source: greenhouse
+    company: "Acme AI"
+    title: "Machine Learning Intern (Summer 2027)"
+    location_raw: "Toronto, Ontario, Canada"
+    department: "Research"
+    url: "https://boards.greenhouse.io/acme/jobs/1001"
+    description_text: |
+      Join our ML team for a 4-month co-op from May to August 2027 in Toronto.
+      You will train models in Python and PyTorch and deploy them on Kubernetes.
+    expected:
+      is_internship: true
+      terms: ["summer '27"]
+      locations: ["Toronto, Ontario, Canada"]
+      remote_ok: false
+      canada_eligible: true
+      role_type: "Machine Learning"
+      tech_stack: ["Python", "PyTorch", "k8s"]
+  - id: "lever:beta:abc-2002"
+    source: lever
+    company: "Beta Corp"
+    title: "Software Engineering Co-op (Fall 2027 / Winter 2028)"
+    location_raw: "Remote - Canada"
+    department: null
+    url: "https://jobs.lever.co/beta/abc-2002"
+    description_text: |
+      An 8-month co-op, September 2027 to April 2028, fully remote anywhere in Canada.
+      Our stack is Go, PostgreSQL and React.
+    expected:
+      is_internship: true
+      terms: ["Fall 2027", "Winter 2028"]
+      locations: ["Remote (Canada)"]
+      remote_ok: true
+      canada_eligible: true
+      role_type: swe
+      tech_stack: ["golang", "postgres", "react"]
+    label_notes: "8-month co-op spanning two terms."
+  - id: "ashby:gamma:c3"
+    source: ashby
+    company: "Gamma"
+    title: "Senior Data Engineer"
+    location_raw: "New York, NY"
+    department: "Data"
+    url: "https://jobs.ashbyhq.com/gamma/c3"
+    description_text: |
+      Senior data engineer in our New York office. Must be authorized to work in the US.
+      Spark, Airflow and Snowflake.
+    expected:
+      is_internship: false
+      terms: []
+      locations: ["New York, NY"]
+      remote_ok: false
+      canada_eligible: false
+      role_type: data
+      tech_stack: ["spark", "airflow", "snowflake"]

@@ -1,0 +1,57 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: orbit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-orbit}
+      POSTGRES_DB: orbit
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres-init.sql:/docker-entrypoint-initdb.d/10-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbit -d orbit"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
+  orbit:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Secrets (OPENAI_API_KEY, TELEGRAM_*) come from .env when it exists. Optional so that
+    # `docker compose config` works without one (CI); Orbit then runs CLI-only.
+    env_file:
+      - path: .env
+        required: false
+    # `environment` wins over env_file, so host-only values in .env (DATABASE_URL on 127.0.0.1,
+    # a Windows ORBIT_HOME) can't leak into the container.
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orbit:${POSTGRES_PASSWORD:-orbit}@postgres:5432/orbit
+      ORBIT_HOME: /app
+      ORBIT_API_HOST: 0.0.0.0
+      ORBIT_API_PORT: "8765"
+      # Orbit stores and schedules in naive local time (briefing cron, reminders); the container is UTC otherwise.
+      TZ: ${TZ:-America/Toronto}
+    ports:
+      - "127.0.0.1:${ORBIT_PORT:-8765}:8765"
+    volumes:
+      - ./memory:/app/memory
+      - ./persona:/app/persona
+      - ./data:/app/data
+      - ./logs:/app/logs
+    healthcheck:
+      # The slim image has no curl. urlopen raises on HTTP 503 (db down), so the check fails then too.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      start_interval: 2s
+      retries: 3
+    restart: unless-stopped
+
+volumes:
+  pgdata:

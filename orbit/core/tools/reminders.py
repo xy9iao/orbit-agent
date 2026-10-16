@@ -11,7 +11,8 @@ def _fmt(r: dict) -> str:
 
 @tool
 async def set_reminder(ctx: ToolContext, due_at: str, text: str) -> str:
-    """Schedule a reminder that will be pushed to the user at a specific time. Call current_time first and convert relative times to an absolute local timestamp.
+    """Schedule a reminder that will be pushed to the user at a specific time.
+    Call current_time first and convert relative times to an absolute local timestamp.
 
     Args:
         due_at: Absolute local time in ISO format, e.g. 2026-10-09T09:00:00

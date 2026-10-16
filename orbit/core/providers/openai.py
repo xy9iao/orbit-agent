@@ -1,4 +1,4 @@
-"""OpenAI-compatible chat completions provider (OpenAI, DeepSeek, Ollama, vLLM...)."""
+"""OpenAI-compatible chat completions and embeddings provider (OpenAI, DeepSeek, Ollama, vLLM...)."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from typing import Any
 import httpx
 from openai import AsyncOpenAI
 
-from .base import Response, ToolCall
+from .base import EmbedResponse, Response, ToolCall
 
 
 class OpenAIProvider:
@@ -45,3 +45,12 @@ class OpenAIProvider:
                 "completion_tokens": completion.usage.completion_tokens or 0,
             }
         return Response(text=msg.content or "", tool_calls=tool_calls, usage=usage, raw=completion)
+
+    async def embed(self, model: str, texts: list[str], **params: Any) -> EmbedResponse:
+        result = await self._client.embeddings.create(model=model, input=texts, **params)
+        # Each item carries its input `index`; sort so vectors always line up with `texts`.
+        items = sorted(result.data, key=lambda item: item.index)
+        usage: dict[str, int] = {}
+        if result.usage:
+            usage = {"prompt_tokens": result.usage.prompt_tokens or 0, "completion_tokens": 0}
+        return EmbedResponse(vectors=[list(item.embedding) for item in items], usage=usage, raw=result)

@@ -19,6 +19,13 @@ tasks:
   summarize: { provider: openai, model: gpt-5-mini }
   code:      { provider: openai, model: gpt-5 }
   briefing:  { provider: openai, model: gpt-5 }
+  # Vectors are stored as vector(1536): changing this model or its dimension
+  # needs a new Alembic migration and a re-embed of every posting and profile.
+  embed:     { provider: openai, model: text-embedding-3-small }
+  # Radar posting extraction (M4.2): schema-constrained JSON from a small model. Low reasoning
+  # effort keeps it cheap; raise it if `orbit radar eval` accuracy is poor. gpt-6-luna replaced
+  # gpt-5-mini here ($0.10/$0.50 vs $0.25/$2.00 per 1M tokens); switch back if eval accuracy drops.
+  extract:   { provider: openai, model: gpt-6-luna, params: { reasoning_effort: low } }
   # Extra request params are passed straight to the API, e.g.
   # chat: { provider: openai, model: gpt-5, params: { reasoning_effort: low } }
 
@@ -40,4 +47,25 @@ jobs:
     cron: "0 8 * * *"      # every day 08:00 local time
   startup_notice: true     # push "Orbit online" to Telegram on start
 
-watchers: []               # e.g. - { type: gmail, interval_minutes: 5 } (phase 2)
+# Polled in-process by APScheduler. Optional keys per watcher: interval_minutes (default 5) and
+# first_run_delay_seconds (first check that long after startup instead of one full interval later).
+watchers:
+  - { type: internship_radar, interval_minutes: 30, first_run_delay_seconds: 60 }
+
+# Internship Radar preferences (used by the internship_radar watcher and `orbit radar ...`).
+radar:
+  # Work terms you want, as "<Season> <YYYY>" (Winter = Jan-Apr, Summer = May-Aug, Fall = Sep-Dec).
+  terms: ["Winter 2027", "Summer 2027"]
+  # A posting passes when an extracted location is listed here, or it is remote and open to Canada.
+  # Formats: "City, XX" (two-letter province/state) or "Remote (Canada)".
+  locations: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
+  # Hard filter on the extracted role type. Options: swe, ml_ai, data, infra, security, mobile,
+  # frontend, hardware, product, design, research, other. Empty list = any role.
+  role_types: [swe, ml_ai, infra, research]
+  # Score = 0.8 * similarity to the resume + 0.2 * similarity to the radar goal. Calibrated 2026-10-16 with
+  # real gpt-6-luna extractions and text-embedding-3-small: just below Stripe's SWE intern (0.503), the
+  # lowest technical role wanted; technical internships scored 0.48-0.57.
+  notify_threshold: 0.50
+  resume_path: data/resume.md      # relative to ORBIT_HOME; data/ is git-ignored
+  max_extract_per_poll: 40         # caps LLM extraction cost per 30-minute poll
+  max_notifications_per_poll: 5    # extra matches go into one digest message

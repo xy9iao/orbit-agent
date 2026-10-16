@@ -54,3 +54,28 @@ async def test_call_sync_async_and_errors(memory, db):
     assert await reg.call("async_tool", {"x": 3}, ctx) == "cli:3"
     assert (await reg.call("boom", {}, ctx)).startswith("error: ValueError")
     assert (await reg.call("missing", {}, ctx)).startswith("error: unknown tool")
+
+
+def test_wrapped_arg_lines_continue_the_previous_param():
+    reg = ToolRegistry()
+
+    @reg.tool
+    def search(query: str = "", filters: dict | None = None) -> str:
+        """Search.
+
+        Args:
+            query: What to look for,
+                over two lines.
+            filters: Optional object with keys.
+                term: a work term.
+                limit: how many.
+        """
+        return query
+
+    props = reg.schemas()[0]["function"]["parameters"]["properties"]
+    assert props["query"]["description"] == "What to look for, over two lines."
+    assert props["filters"] == {
+        "type": "object",
+        "description": "Optional object with keys. term: a work term. limit: how many.",
+    }
+    assert set(props) == {"query", "filters"}

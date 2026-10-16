@@ -34,7 +34,7 @@ class Agent:
         self.memory = memory
         self.db = db
         self.persona_dir = persona_dir
-        self.scheduler: "OrbitScheduler | None" = None
+        self.scheduler: OrbitScheduler | None = None
 
     # ---- prompt assembly -------------------------------------------------
     def persona(self) -> str:
@@ -68,7 +68,12 @@ class Agent:
         messages.append({"role": "user", "content": text})
 
         ctx = ToolContext(
-            channel=channel, chat_id=chat_id, db=self.db, memory=self.memory, scheduler=self.scheduler
+            channel=channel,
+            chat_id=chat_id,
+            db=self.db,
+            memory=self.memory,
+            scheduler=self.scheduler,
+            router=self.router,
         )
         tools = self.registry.schemas() or None
         reply = ""

@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import sys
+import time
 from datetime import datetime
+from typing import Any
 
 from loguru import logger
 
@@ -16,6 +18,7 @@ from orbit.core.agent import Agent
 from orbit.core.memory import MemoryStore
 from orbit.core.router import ModelRouter
 from orbit.core.tools import registry
+from orbit.radar import watcher as _radar_watcher  # noqa: F401 - registers the internship_radar watcher
 from orbit.scheduler.scheduler import OrbitScheduler
 from orbit.storage.db import Database
 
@@ -46,7 +49,8 @@ class OrbitApp:
         self.settings = settings or Settings()
         self.config = config or load_config(self.settings.orbit_home / "config.yaml")
         self.started_at = datetime.now()
-        self.db = Database(self.settings.data_dir / "orbit.db")
+        self.db = Database(self.settings.database_url)
+        self.db_ping_timeout = 2.0  # seconds; /health must answer even when Postgres hangs
         self.memory = MemoryStore(self.settings.memory_dir)
         self.router = ModelRouter.from_config(self.config, self.settings, usage_sink=self._record_usage)
         self.agent = Agent(
@@ -64,11 +68,13 @@ class OrbitApp:
     async def start(self) -> None:
         logger.info("Orbit v{} starting (home={})", __version__, self.settings.orbit_home)
         await self.db.connect()
+        await self.db.migrate()
         self.memory.ensure()
         if not self.router.providers:
             logger.error("no model provider configured - put OPENAI_API_KEY in .env")
 
-        self.channels["cli"] = LocalApiChannel(self, self.config.api.host, self.config.api.port)
+        host, port = self.settings.api_bind(self.config.api)
+        self.channels["cli"] = LocalApiChannel(self, host, port)
         if self.config.telegram.enabled:
             if self.settings.telegram_bot_token and self.settings.telegram_owner_chat_id:
                 from orbit.channels.telegram import TelegramChannel
@@ -134,12 +140,33 @@ class OrbitApp:
         logger.warning("push undelivered: {}", text[:120])
         return False
 
+    def uptime_seconds(self) -> int:
+        return int((datetime.now() - self.started_at).total_seconds())
+
+    async def db_health(self) -> dict[str, Any]:
+        """Ping the database with a timeout. Never raises.
+
+        Returns {"db": "ok"|"error", "db_latency_ms": float} plus "error" (a short string) on failure.
+        """
+        t0 = time.perf_counter()
+        try:
+            await asyncio.wait_for(self.db.ping(), timeout=self.db_ping_timeout)
+        except Exception as e:  # timeout, refused connection, auth failure, not connected
+            latency_ms = round((time.perf_counter() - t0) * 1000, 1)
+            detail = str(e).splitlines()[0] if str(e) else ""
+            error = f"{type(e).__name__}: {detail}" if detail else type(e).__name__
+            logger.warning("db health check failed after {} ms: {}", latency_ms, error)
+            return {"db": "error", "db_latency_ms": latency_ms, "error": error[:200]}
+        return {"db": "ok", "db_latency_ms": round((time.perf_counter() - t0) * 1000, 1)}
+
     async def status(self) -> dict:
+        db = await self.db_health()
         pending = await self.db.list_reminders("pending")
         return {
             "version": __version__,
             "started_at": self.started_at.isoformat(timespec="seconds"),
-            "uptime_seconds": int((datetime.now() - self.started_at).total_seconds()),
+            "uptime_seconds": self.uptime_seconds(),
+            "db": db["db"],
             "channels": list(self.channels),
             "providers": list(self.router.providers),
             "tasks": {k: f"{v.provider}:{v.model}" for k, v in self.config.tasks.items()},

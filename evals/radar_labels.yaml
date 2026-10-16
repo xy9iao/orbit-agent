@@ -1,0 +1,2265 @@
+# Internship Radar extraction eval set (M4.5). Format: see the docstring of orbit/radar/eval.py.
+#
+# STATUS: UNVERIFIED. The 30 `expected` blocks below were drafted by a coding agent that read each
+# posting's description_text by hand. They were NOT produced by the extraction model. Until a human has
+# reviewed every item, `orbit radar eval` prints a warning banner and its numbers are provisional.
+#
+# How to review (about 1-2 minutes per item):
+#   1. Read the item's title, location_raw and description_text. Label only from that snapshot: it is
+#      what the model sees (the live posting may have changed, and the snapshot may be truncated).
+#   2. Check each of the seven expected fields against the field definitions in
+#      orbit/radar/models.py (PostingExtraction) and the rules in orbit/radar/extract.py:
+#        - is_internship: internship, co-op or student program (PEY, student research). New-grad,
+#          early-career, full-time, part-time and contract roles are false.
+#        - terms: "<Season> <YYYY>" with Winter = Jan-Apr, Summer = May-Aug ("Spring" means Summer),
+#          Fall = Sep-Dec; one entry per term; [] when no term or dates are stated. Graduation dates and
+#          full-time start dates are not terms.
+#        - locations: every place the role can be done, in canonical form ("Toronto, ON",
+#          "Seattle, WA", "Remote (Canada)", "Remote (US)"); a remote listing that names Canada becomes
+#          "Remote (Canada)".
+#        - remote_ok / canada_eligible: booleans as defined in PostingExtraction.
+#        - role_type: one of swe, ml_ai, data, infra, security, mobile, frontend, hardware, product,
+#          design, research, other.
+#        - tech_stack: concrete technologies only (languages, frameworks, libraries, databases, clouds,
+#          tools), lowercase; no concepts such as "machine learning" or "distributed systems".
+#   3. `label_notes` marks the ambiguous calls (look for AMBIGUOUS, HARD CASE, VAGUE TERM, NEW GRAD).
+#      Fix any label you disagree with and update or delete its note.
+#   4. Only after ALL 30 items are reviewed, change `status` to something like
+#      "verified by <name> on <date>". Never flip it after a partial review.
+#   5. Check the file still loads: `orbit radar eval --dry-run` (or load_labels in Python).
+#
+# Sources: 30 live postings polled from the seeded public Greenhouse, Lever and Ashby boards in
+# October 2026; description_text is the stored plain text cut to at most 6000 characters.
+
+status: "UNVERIFIED — needs human review"
+version: 1
+notes: 'Draft labels for the extraction eval (M4.5): 30 real postings, drafted by reading each snapshot; not reviewed
+  by a human yet.'
+items:
+- id: ashby:cohere:36d1f52f-8270-4652-adf5-5303a0ff341b
+  source: ashby
+  company: Cohere
+  title: Machine Learning Intern/Co-op  (Winter 2027)
+  location_raw: Canada; Europe; United States; United Kingdom (Remote)
+  department: Internships
+  url: https://jobs.ashbyhq.com/cohere/36d1f52f-8270-4652-adf5-5303a0ff341b
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: [Remote (Canada), Remote (Europe), Remote (US), Remote (United Kingdom)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: ml_ai
+    tech_stack: [python, tensorflow, tf-serving, jax, xla, mlir, cuda]
+  label_notes: Term only from the title. Locations follow the listed regions, each remote (Ashby's '(Remote)' flag);
+    the office cities in the text are company offices, not this role's locations. TPUs left out of tech_stack (hardware,
+    not a technology the posting asks you to use); 'Transformers' read as the model architecture, not the Hugging
+    Face library.
+  description_text: |-
+    WHO ARE WE?
+
+    Cohere is the leading security-first enterprise AI company. We build cutting-edge foundation AI models and end-to-end products that are designed to solve real-world business problems.
+
+    We’re training and deploying frontier models for enterprises who are building AI systems. We believe that our work is instrumental to the widespread adoption of AI and we are looking for folks that want to be part of that.
+
+    We obsess over what we build. Each one of us is responsible for contributing to increasing the capabilities of our models and the value they drive for our customers. Cohere is a team of researchers, engineers, designers, and more, who are all passionate about their craft.
+
+    We are a global technology company headquartered in Toronto with key offices in London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul. Join us!
+
+    Why this role?
+
+    Ship state of the art models to production.
+
+    Design and implement novel research ideas.
+
+    Build elegant training/deployment pipelines.
+
+    Join us at a pivotal moment, shape what we build and wear multiple hats as an intern!
+
+    Our recruitment process will begin in the upcoming weeks, and we will be carefully reviewing applications and assessing potential candidates for our internships. Should we find a suitable match with your qualifications and our requirements, we will be in touch to discuss the opportunity further and to advance your application to the next stage
+
+    Please Note: To be eligible for this position you should be a student currently enrolled in a post-secondary program, available for a full-time 3-6 month internship, co-op, or research work term.
+
+    As a Machine Learning Intern, you will:
+
+    - Design, train and improve upon cutting-edge models.
+
+    - Help us develop new techniques to train and serve models safer, better, and faster.
+
+    - Train extremely large-scale models on massive datasets.
+
+    - Explore continual and active learning strategies for streaming data.
+
+    - Learn from experienced senior machine learning technical staff.
+
+    - Work closely with product teams to develop solutions.
+
+    You may be a good fit if you have:
+
+    - Proficiency in Python and related ML frameworks such as Tensorflow, TF-Serving, JAX, and XLA/MLIR.
+
+    - Experience using large-scale distributed training strategies.
+
+    - Familiarity with autoregressive sequence models, such as Transformers.
+
+    - Strong communication and problem-solving skills.
+
+    - A demonstrated passion for applied NLP models and products.
+
+    - Bonus: experience writing kernels for GPUs using CUDA.
+
+    - Bonus: experience training on TPUs.
+
+    - Bonus: papers at top-tier venues (such as NeurIPS, ICML, ICLR, AIStats, MLSys, JMLR, AAAI, Nature, COLING, ACL, EMNLP).
+
+    FULL-TIME EMPLOYEES AT COHERE ENJOY THESE PERKS:
+
+    - A weekly lunch stipend of $75/£75 or equivalent in your local currency for lunch.
+
+    - Full health and dental benefits, including a separate budget for mental health.
+
+    - RRSP matching, 401K, Pension Scheme.
+
+    - 100% Parental Leave top-up for up to 6 months, for either parent.
+
+    - Annual enrichment benefits:
+
+    Arts & culture, fitness/wellness, quality time, and a workspace improvement credit.
+
+    Education & learning stipend for conferences, courses, and coaching.
+
+    - 6 weeks of paid vacation (30 working days!)
+
+    - Budget for traveling to other offices if you are remote, plus an annual company offsite.
+
+    HOW AND WHERE WE WORK:
+
+    - Cohere is remote-friendly, but we also have offices in Toronto, London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul with more opening soon.
+
+    - For those in the office: a daily lunch program, plenty of snacks, and regular community and social events.
+
+    - For those not near an office: a co-working benefit so you can work alongside others in your city.
+
+    - Everyone receives a $500 home office stipend to set up your workspace properly.
+
+    If any of the above doesn’t line up exactly with your experience, we still encourage you to apply.
+
+    We strive to create an inclusive work environment for all; we welcome applicants from all backgrounds and are committed to providing equal opportunities. Should you require any accommodations during the recruitment process, please submit an Accommodations Request Form https://docs.google.com/forms/d/12a6IrLdF3kI2nonKSr4tiFuz18rLQbaeYV-JM9L4o9Q/edit, and we will work together to meet your needs.
+
+    We may use AI-enabled tools to screen and assess applicants against the criteria for this position. This helps our recruiters identify potentially qualified candidates, but it doesn't limit the applications our recruiters may review or consider.
+
+    Beware of Scams: Cohere will never ask for payment or third-party services (e.g., CV writing) as part of our hiring process. All legitimate roles are listed on the Cohere careers page and LinkedIn only, with all communications from Cohere employees coming from an @cohere.com or @cw.cohere email alias. If jobs are viewed on other sites then please verify these through our official careers https://cohere.com/careers page.
+- id: ashby:cohere:8c035d3d-081d-4c8a-914a-72f4efaad254
+  source: ashby
+  company: Cohere
+  title: Software Engineer Intern (Winter 2027)
+  location_raw: Canada; Dubai; London; United States; United Kingdom (Remote)
+  department: Internships
+  url: https://jobs.ashbyhq.com/cohere/8c035d3d-081d-4c8a-914a-72f4efaad254
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: [Remote (Canada), Remote (Dubai), Remote (London), Remote (US), Remote (United Kingdom)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: []
+  label_notes: Term only from the title. Locations copied region by region from the listing (London and United Kingdom
+    both listed). No concrete technology is named (CI/CD is a practice), so tech_stack is empty.
+  description_text: |-
+    WHO ARE WE?
+
+    Cohere is the leading security-first enterprise AI company. We build cutting-edge foundation AI models and end-to-end products that are designed to solve real-world business problems.
+
+    We’re training and deploying frontier models for enterprises who are building AI systems. We believe that our work is instrumental to the widespread adoption of AI and we are looking for folks that want to be part of that.
+
+    We obsess over what we build. Each one of us is responsible for contributing to increasing the capabilities of our models and the value they drive for our customers. Cohere is a team of researchers, engineers, designers, and more, who are all passionate about their craft.
+
+    We are a global technology company headquartered in Toronto with key offices in London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul. Join us!
+
+    Why this role?
+
+    This role is for students who are excited about building the next generation of machine learning models and NLP products. Our SWE roles can cover creating datasets for machine learning, scaling the pods to serve our API, or even building out new security features on our platform. We don't distinguish much between interns and full-time employees, and you’ll have plenty of opportunities to push code to production. You'll have full autonomy and ownership over high-impact work, and will be backed by the support of an incredible team or leaders & mentors.
+
+    Join us at a pivotal moment, shape what we build, and wear multiple hats!
+    We're currently hiring for multiple teams and roles, including Frontend, Backend, Full-stack, and Infrastructure roles. We'll take your interests & experience into account throughout the application process.
+    Our recruitment process will begin in the upcoming weeks, and we will be carefully reviewing applications and assessing potential candidates for our internships. Should we find a suitable match with your qualifications and our requirements, we will be in touch to discuss the opportunity further and to advance your application to the next stage.
+
+    Please Note: To be eligible for this position, you should be currently enrolled in a post-secondary program and available for a full-time 3-6 month internship, co-op, or research work term.
+
+    As a Software Engineering Intern, you will:
+
+    - Ship delightful experiences for our user-facing products, meticulously crafting code for browsers or server code.
+
+    - Build features for the API platform that directly impact users.
+
+    - Design and implement robust data pipelines (crawlers, storage, filters).
+
+    - Design and implement scalable services or infrastructure for machine learning development.
+
+    - Build internal tooling (CI/CD, dev utilities) to move faster together.
+
+    - Build tech writing skills through maintaining and contributing to technical documentation, both internal and external facing.
+
+    - Keep up with the cutting edge and adopt new technologies to improve performance and reliability across Cohere.
+
+    FULL-TIME EMPLOYEES AT COHERE ENJOY THESE PERKS:
+
+    - A weekly lunch stipend of $75/£75 or equivalent in your local currency for lunch.
+
+    - Full health and dental benefits, including a separate budget for mental health.
+
+    - RRSP matching, 401K, Pension Scheme.
+
+    - 100% Parental Leave top-up for up to 6 months, for either parent.
+
+    - Annual enrichment benefits:
+
+    Arts & culture, fitness/wellness, quality time, and a workspace improvement credit.
+
+    Education & learning stipend for conferences, courses, and coaching.
+
+    - 6 weeks of paid vacation (30 working days!)
+
+    - Budget for traveling to other offices if you are remote, plus an annual company offsite.
+
+    HOW AND WHERE WE WORK:
+
+    - Cohere is remote-friendly, but we also have offices in Toronto, London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul with more opening soon.
+
+    - For those in the office: a daily lunch program, plenty of snacks, and regular community and social events.
+
+    - For those not near an office: a co-working benefit so you can work alongside others in your city.
+
+    - Everyone receives a $500 home office stipend to set up your workspace properly.
+
+    If any of the above doesn’t line up exactly with your experience, we still encourage you to apply.
+
+    We strive to create an inclusive work environment for all; we welcome applicants from all backgrounds and are committed to providing equal opportunities. Should you require any accommodations during the recruitment process, please submit an Accommodations Request Form https://docs.google.com/forms/d/12a6IrLdF3kI2nonKSr4tiFuz18rLQbaeYV-JM9L4o9Q/edit, and we will work together to meet your needs.
+
+    We may use AI-enabled tools to screen and assess applicants against the criteria for this position. This helps our recruiters identify potentially qualified candidates, but it doesn't limit the applications our recruiters may review or consider.
+
+    Beware of Scams: Cohere will never ask for payment or third-party services (e.g., CV writing) as part of our hiring process. All legitimate roles are listed on the Cohere careers page and LinkedIn only, with all communications from Cohere employees coming from an @cohere.com or @cw.cohere email alias. If jobs are viewed on other sites then please verify these through our official careers https://cohere.com/careers page.
+- id: ashby:1password:412c1aac-13ce-4cc9-9c81-90a9a7a2ee48
+  source: ashby
+  company: 1Password
+  title: Data Intern  - Product Analytics - Winter 2027
+  location_raw: Remote (United States | Canada)
+  department: Internships
+  url: https://jobs.ashbyhq.com/1password/412c1aac-13ce-4cc9-9c81-90a9a7a2ee48
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: [Remote (Canada)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: data
+    tech_stack: [sql, looker, amplitude, hex, python, r]
+  label_notes: '''Remote (United States | Canada)'' collapses to Remote (Canada) under the normalizer''s Canada-wins
+    rule. January to April 2027 = Winter 2027.'
+  description_text: |-
+    1Password is growing. We’ve surpassed $400M in ARR and we’re continuing to accelerate, earning a spot on the Forbes Cloud 100 for four years in a row and teaming up with iconic partners like Oracle Red Bull Racing.
+
+    About 1Password
+
+    At 1Password, we’re building the foundation for a safe, productive digital future. Our mission is to unleash employee productivity without compromising security by ensuring every identity is authentic, every application sign-in is secure, and every device is trusted. We innovated the market-leading enterprise password manager and pioneered Unified Access Management, a new cybersecurity category built for the way people and AI agents work today. As one of the most loved brands in cybersecurity, we take a human-centric approach in everything from product strategy to user experience. Over 180,000 businesses, from Fortune 100 leaders to the world’s most innovative AI companies, trust 1Password to help their teams securely adopt the SaaS and AI tools they need to do their best work.
+
+    If you're excited about the opportunity to contribute to the digital safety of millions, to work alongside a team of curious, driven individuals, and to solve hard problems in a fast-paced, dynamic environment, then we want to hear from you. Come join us and help shape a safer, simpler digital future.
+
+    The Product Analytics leverages product data to surface actionable insights about our users and products, empowering data-informed decision-making across 1Password. The Product Analytics squad brings together Product Analytics, Data Science, Analytics Engineering, and Data Engineering partners. We collaborate with product teams and cross-functional stakeholders to define success metrics, improve telemetry and data quality, build self-serve reporting, and translate product behavior into clear recommendations.
+
+    This is a remote opportunity within Canada/US. This position will be for 4 months - January to April 2027.
+
+    How we’re using AI today
+    On the Finance team, we’re using AI to drive productivity, scale insight, and deliver better decision-making across 1Password. AI helps us move faster and sharpen our thinking, from summarizing context and pressure-testing assumptions to turning complex inputs into clear executive-level narratives. We bring AI into our work thoughtfully, improving repeatable workflows while staying accountable for the accuracy, confidentiality, and controls behind every output, creating space to focus on judgement, strategic partnership, and meaningful business outcomes.
+
+    What you can expect:
+
+    - Partner with Product Analytics and Data Science team members and product partners to define questions, success metrics, and measurement plans.
+
+    - Analyze product usage and telemetry data to identify trends, opportunities, and areas for improvement.
+
+    - Communicate findings clearly through written analyses, presentations, and recommendations for product and cross-functional teams.
+
+    - Build or improve dashboards, reports, and self-serve analyses using tools such as SQL, Looker, Amplitude, and Hex.
+
+    - Support data quality and telemetry validation, helping ensure product data is reliable and well understood.
+
+    What we're looking for:
+
+    - Confidence: A willingness to take on new challenges, and see them through to completion.
+
+    - Humility: You're not afraid to ask "stupid" questions and make mistakes (as long as you learn from them).
+
+    - Curiosity: You look for better ways of doing things, even if everyone seems happy with how they are.
+
+    - Teamwork: We work together, and succeed as a team!
+
+    Bonus points for:
+
+    - Basic familiarity with machine learning or advanced statistical methods.
+
+    - Working knowledge of SQL.
+
+    - Experience with Python or R for analysis.
+
+    - Familiarity with product analytics or BI tools such as Amplitude, Looker, or Hex.
+
+    - Coursework or experience in statistics, experimentation, or A/B testing.
+
+    Our culture
+
+    At 1Password, we prioritize collaboration, clear and transparent communication, receptiveness to feedback, and alignment with our core values: keep it simple, lead with honesty, and put people first. The way we bring those values to life every day is guided by our 1Password Behaviors for Success https://1password.com/blog/how-to-interview-with-confidence-at-1password.
+
+    You’ll be part of a team that challenges the status quo, and is excited to experiment and iterate in search of the best solution. That said, 1Password is not for everyone. Our work is demanding, we strive for excellence, and the pace is fast. We need people who are keen to take on challenging problems, who seek feedback to grow, and who are driven to make an impact. If you're looking for a place where you can settle into a comfortable routine, this might not be the right fit for you. We’re looking for individuals who are proven experts in their fields, as well as those who are highly adaptable, can thrive in ambiguity and through change, are curious, and above all deliver results.
+
+    How we work with AI
+
+    We are committed to leveraging cutting-edge technology—including AI—to achieve our mission. We also understand that thinking critically about AI in its current forms will help us create better solutions for our customers and ourselves with its future forms, which will help us continue to close the gap between security and privacy and achieve our mission. We want team members at all levels to take the approach of actively learning AI best practices, identifying opportunities to apply AI in meaningful ways, and driving innovative solutions in their daily work. Embracing the future of AI isn't just encouraged—it's an essential part of how we will be successful at 1Password.
+
+    [... description truncated]
+- id: ashby:wealthsimple:581eee5b-329b-4de3-a9ac-72bf9ce0c654
+  source: ashby
+  company: Wealthsimple
+  title: Intern, Client Experience Strategy & Operations
+  location_raw: Remote (Canada); Toronto, Ontario
+  department: Operations
+  url: https://jobs.ashbyhq.com/wealthsimple/581eee5b-329b-4de3-a9ac-72bf9ce0c654
+  expected:
+    is_internship: true
+    terms: [Winter 2027, Summer 2027]
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: other
+    tech_stack: [zendesk, jira]
+  label_notes: AMBIGUOUS. Open to co-op students, non-co-op students AND recent graduates; labeled an internship
+    because the posting calls it one. 8 months from Jan 11 2027 = Winter + Summer 2027. The listing says 'Remote
+    (Canada); Toronto, Ontario' but the text says hybrid in Toronto (Wed/Thu in office), so remote_ok false and
+    only Toronto. CX operations work (AI workflow automation or analytics) -> other (data is defensible for the
+    Enablement track).
+  description_text: |-
+    BUILD SOMETHING PEOPLE LOVE
+
+    Wealthsimple is Canada’s leading financial innovator. The company offers a full suite of simple, sophisticated financial products across managed investing, do-it-yourself trading, cryptocurrency, tax filing, spending and saving. Wealthsimple currently serves more than 4 million Canadians and holds over $155 billion in assets under administration. The company was founded in 2014 by a team of financial experts and technology entrepreneurs, and is headquartered in Toronto, Canada.
+
+    We're proud of what we've built — and we're just getting started. Read our Culture Manual https://www.wealthsimple.com/en-ca/culture and learn more about how we work https://www.wealthsimple.com/en-ca/careers.
+
+    INTERN, CLIENT EXPERIENCE STRATEGY & OPERATIONS (WINTER 2027)
+
+    Location: Toronto, ON (Hybrid)
+
+    Term: 8 months, beginning January 11, 2027.
+
+    This is an 8 month internship designed for co-op students, non-co-op students, and recent graduates who are ready to ship impactful work.
+
+    During your internship, you will have the opportunity to contribute to projects that are changing the landscape of financial services for Canadians. You will be on a team that supports your growth, provides mentorship, and connects you to the broader Wealthsimple community!
+
+    Our internship program operates on a hybrid model, where you’ll be working from our Toronto headquarters on Wednesdays and Thursdays. This structure offers the flexibility of remote work, while also providing the collaboration, connection, and mentorship that come from being together in person.
+
+    This posting covers two tracks: Workflow Optimization and Enablement. Please apply to the one that best fits your interests.
+
+    Please note: the role you apply for is the role you will be assessed on throughout the interview process. We are unable to accommodate requests to switch between Workflow Optimization and Enablement tracks after submission.
+
+    ABOUT THE CX OPERATIONS TEAM
+
+    The CX Operations team is responsible for enabling exceptional client and agent experiences across Wealthsimple through optimized systems, content, AI solutions, and strategic initiatives. We manage the technology, knowledge, and processes that power our customer experience organization, driving continuous improvement in efficiency and effectiveness.
+
+    CHOOSE YOUR TRACK:
+
+    WORKFLOW OPTIMIZATION, INTERN
+
+    Workflow Optimization (WFO) streamlines the workflows, systems, and automations that span our entire ecosystem of tools. We partner with teams across the organization to identify and simplify toilsome workflows through process mapping, automation, and AI tool implementations.
+
+    As a WFO Intern, you'll partner with WFO managers and internal SMEs to: design and build AI tools for analysis; audit and improve automations; map and redesign workflows; and deliver measurable improvements in containment, resolution time, and operational risk.
+
+    You'll develop core skills in project planning, process design, AI tool deployment, and AI‑enhanced automation while contributing directly to CX efficiency and client experience.
+
+    IN THIS ROLE, YOU’LL HAVE THE OPPORTUNITY TO
+
+    - Partner with the AI Experiences team to launch net-new features to our clients and support agents.
+
+    - Map current-state workflows with SMEs, identify optimization opportunities, and implement AI-enhanced changes across macros, automations, and documentation.
+
+    - Build comprehensive automation inventories across multiple systems, to propose consolidations and net-new automations and AI optimizations.
+
+    WHAT YOU’LL BRING
+
+    - Structured problem solving and process thinking, with the ability to translate ambiguous workflows into clear maps and requirements
+
+    - Basic familiarity with AI concepts (LLM, RAG, context windows, hallucination, etc.)
+
+    - Basic familiarity with customer operations tools or ticketing systems (Zendesk, JIRA)
+
+    - Basic familiarity with data and testing concepts – to be applied in the context of testing the accuracy of AI models (A/B testing, sample sizes, statistical significance, etc.)
+
+    - Strong documentation and communication skills to collaborate with SMEs and present proposals
+
+    - Bias to action and ownership to drive projects from discovery to implementation
+
+    ENABLEMENT, INTERN
+
+    Our enablement group is responsible for how our support workforce learns, performs, and grows. We build the systems, programs, and culture that keep our support teams performing at a high bar. Quality, learning, change readiness, and performance measurement all sit within this group. Underneath all of it is a simple belief: every client interaction should be fast, high-quality, and trustworthy. Our job is to turn that belief into measurable reality.
+
+    As an Enablement Intern, you'll support the group's analytical work. You'll partner with the managers who own quality and performance measurement to test the data, run original analyses, spot trends early, and turn your findings into recommendations leaders can act on. This goes beyond reporting, the question is never only "what does the number say?" It's also "is this measuring the right thing, and what should we do about it?"
+
+    You'll build skills in analysis, metric design, and structured problem solving, and see up close how an AI-first quality and performance program runs in a regulated industry. The best person for this role doesn't only meet a high bar; they hold their own work to one.
+
+    IN THIS ROLE, YOU’LL HAVE THE OPPORTUNITY TO
+
+    - Design and run trending analyses across scorecard metrics to inform target reviews, and build a repeatable way of doing them so each review doesn't start from scratch
+
+    - Look for relationships between metrics, such as how quality, satisfaction and efficiency move together, and turn what you find into clear charts and recommendations
+
+    - Help define and document metrics: what each one measures, where its data comes from, and where two metrics overlap or one is only raw input to another
+
+    [... description truncated]
+- id: ashby:jane-app:6a644699-0d4d-4f4b-b471-7940a0bd74cc
+  source: ashby
+  company: Jane App
+  title: Revenue Cycle Management Intern
+  location_raw: United States (Remote)
+  department: Support
+  url: https://jobs.ashbyhq.com/jane/6a644699-0d4d-4f4b-b471-7940a0bd74cc
+  expected:
+    is_internship: true
+    terms: []
+    locations: [Remote (US)]
+    remote_ok: true
+    canada_eligible: false
+    role_type: other
+    tech_stack: []
+  label_notes: AMBIGUOUS. A 6-month paid internship but aimed at people who recently completed or are near completing
+    a medical-billing program (graduates welcome). No dates given, so terms empty. US clinics, US remote only ->
+    canada_eligible false.
+  description_text: |-
+    ABOUT THE ROLE
+
+    Hi, I'm Karen Salmon https://www.linkedin.com/in/karen-salmon-6a3719119/, the U.S. Insurance Lead here at Jane. I've been with Jane for over two years and lead a small but mighty team supporting U.S.-based clinics through the real, day-to-day complexities of insurance billing.
+
+    Our work is all about helping clinics get paid accurately and on time. We collaborate closely with payers, internal teams, and clinic staff to remove friction, clarify processes, and advocate for our customers.
+
+    We're launching our first-ever internship program on the US Insurance team, and this is where it starts. As our Revenue Cycle Management Intern, you'll work directly alongside our senior billers, learning the real mechanics of medical billing while helping us keep pace with a growing customer base. If you're studying medical billing, coding, or health information tech and want hands-on experience that actually matters, this is a great place to get it.
+
+    WHAT IMPACT WE'RE LOOKING FOR YOU TO MAKE
+
+    - Keep claims moving by following up on outstanding claim statuses and documenting outcomes clearly for the team.
+
+    - Support accurate, timely payment posting by reviewing ERAs and EOBs under the guidance of your supervising biller.
+
+    - Bring structure to denial trends by logging and categorizing denials so patterns are easy to spot and act on.
+
+    - Help patients and clinics stay informed by preparing and maintaining patient statements.
+
+    - Strengthen the team's knowledge base by keeping internal documentation current and useful for both new hires and daily reference.
+
+    WHAT EXPERIENCE WE NEED
+
+    - Recently completed (or nearing completion of) a Medical Billing & Coding, Health Information Technology, or Healthcare Administration program. We're looking for candidates who are well into their coursework or already graduated, not just starting out.
+
+    - Familiarity with core revenue cycle concepts like claims, ERAs/EOBs, and denials, whether from coursework, an externship, or hands-on experience.
+
+    - Comfortable learning new software and tools quickly, and not afraid to ask questions when something's unclear.
+
+    - Strong attention to detail and follow-through, especially when managing repetitive or detail-heavy tasks.
+
+    - Able to commit to a consistent Monday-Friday schedule during standard business hours in your time zone, for the duration of the internship.
+
+    If you don't meet every single qualification but are excited about this role, we'd still love to hear from you.
+
+    MORE ABOUT JANE
+
+    Jane is a founder-led, high-growth SaaS company with a remote-first team working across Canada, the US, and the UK, united by our mission to help the helpers.
+
+    We build the products and tools that thousands of clinics rely on every day to run their businesses, care for their patients, and grow their communities. That level of impact means every person at Jane plays an important role in how we show up for our customers. We're all responsible for being deeply connected to their needs, obsessed with improving their experience, and proud of the difference our work makes in their day-to-day lives.
+
+    Jane is growing fast, and that growth brings exciting challenges that call for adaptability, resilience, learning agility, and humility. We're proud of what we've built and quick to admit what we don't know yet. We listen, learn, and adjust as we go. More than 70,000 businesses run on Jane which has 250,000+ practitioners interacting with our product on a daily basis and growth is continuing to accelerate.
+
+    Our goal isn't just delivery - it's delight. We move quickly, communicate openly, and solve real problems together. If you're energized by ambiguity, motivated by impact, and eager to learn with others, you'll thrive at Jane.
+
+    COMPENSATION
+
+    This is a 6-month, paid internship. Pay is set at minimum wage for your specific location, so your exact rate will depend on where you're based. We're aiming for full-time hours, but we're staying flexible as the program gets off the ground - we'll learn and adjust together as we go.
+
+    This role is fully remote, with an expectation of availability Monday through Friday during standard business hours in your time zone.
+
+    For the right person, a successful internship could lead to a permanent position on our team, which would include our full benefits package. That said, this depends on both fit and whether we have an opening available at the time, so it's a possibility we're excited about rather than a guarantee.
+
+    Jane takes job scams and candidate fraud seriously. Jane will only contact you from an @jane.app http://jane.app email address. We'll never contact you from a personal email, ask for payment, or request purchases during the hiring process. If something doesn't seem right, please reach out to us at hiring@jane.app before sharing any personal information.
+- id: ashby:cohere:7133d205-5421-4336-a8e2-6037b5f55073
+  source: ashby
+  company: Cohere
+  title: Senior Full-Stack Engineer, Internal Applications
+  location_raw: Toronto; Canada (Remote)
+  department: Engineering & Infra
+  url: https://jobs.ashbyhq.com/cohere/7133d205-5421-4336-a8e2-6037b5f55073
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['Toronto, ON', Remote (Canada)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [next.js, typescript, react, python, sql]
+  label_notes: Senior role whose title contains 'Internal' (a substring trap for naive 'intern' matching).
+  description_text: |-
+    WHO ARE WE?
+
+    Cohere is the leading security-first enterprise AI company. We build cutting-edge foundation AI models and end-to-end products that are designed to solve real-world business problems.
+
+    We’re training and deploying frontier models for enterprises who are building AI systems. We believe that our work is instrumental to the widespread adoption of AI and we are looking for folks that want to be part of that.
+
+    We obsess over what we build. Each one of us is responsible for contributing to increasing the capabilities of our models and the value they drive for our customers. Cohere is a team of researchers, engineers, designers, and more, who are all passionate about their craft.
+
+    We are a global technology company headquartered in Toronto with key offices in London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul. Join us!
+
+    WHY THIS ROLE?
+
+    This role is for people who love building tools for their coworkers. The Internal Applications team creates tools that help us create better models. In this role you will collaborate with internal stakeholders, which include annotators, ML researchers, product managers and more. Join our team of builders who create tooling that will pave the way for the next generation of large language models!
+
+    AS A FULL-STACK SOFTWARE ENGINEER ON THE INTERNAL APPLICATIONS TEAM, YOU WILL:
+
+    - Work with a small talented and enthusiastic team of software engineers
+
+    - Contribute to delightful experiences for our user-facing products, meticulously crafting code for browsers and servers
+
+    - Collaborate and grow with your engineering colleagues of all levels through direct pairing sessions, architectural designs, documentation and talks
+
+    - Identify and remove roadblocks to enable your team to increase its engineering velocity.
+
+    - Build resilient systems that are mission-critical
+
+    - Keep up with the cutting edge and adopt new technologies to improve performance and reliability
+
+    YOU MAY BE A GOOD FIT IF:
+
+    - You have experience shipping products with a large number of stakeholders
+
+    - You’re comfortable with the front and back end of the stack, and have previously worked with Next.js, TypeScript, React, and Python
+
+    - You have hands-on experience with complex SQL queries
+
+    - You have excellent communication skills and believe that documentation is a great way to get feedback and discuss technical implementations and designs
+
+    - You’re excited to add new technologies to your toolbox and use them where it makes sense
+
+    - You have the ability to take complex needs and goals and develop easy to understand explanations for all audiences
+
+    - You’re excited about AI and have the motivation to scale a company
+
+    FULL-TIME EMPLOYEES AT COHERE ENJOY THESE PERKS:
+
+    - A weekly lunch stipend of $75/£75 or equivalent in your local currency for lunch.
+
+    - Full health and dental benefits, including a separate budget for mental health.
+
+    - RRSP matching, 401K, Pension Scheme.
+
+    - 100% Parental Leave top-up for up to 6 months, for either parent.
+
+    - Annual enrichment benefits:
+
+    Arts & culture, fitness/wellness, quality time, and a workspace improvement credit.
+
+    Education & learning stipend for conferences, courses, and coaching.
+
+    - 6 weeks of paid vacation (30 working days!)
+
+    - Budget for traveling to other offices if you are remote, plus an annual company offsite.
+
+    HOW AND WHERE WE WORK:
+
+    - Cohere is remote-friendly, but we also have offices in Toronto, London, New York City, San Francisco, Montreal, Paris, Berlin and Seoul with more opening soon.
+
+    - For those in the office: a daily lunch program, plenty of snacks, and regular community and social events.
+
+    - For those not near an office: a co-working benefit so you can work alongside others in your city.
+
+    - Everyone receives a $500 home office stipend to set up your workspace properly.
+
+    If any of the above doesn’t line up exactly with your experience, we still encourage you to apply.
+
+    We strive to create an inclusive work environment for all; we welcome applicants from all backgrounds and are committed to providing equal opportunities. Should you require any accommodations during the recruitment process, please submit an Accommodations Request Form https://docs.google.com/forms/d/12a6IrLdF3kI2nonKSr4tiFuz18rLQbaeYV-JM9L4o9Q/edit, and we will work together to meet your needs.
+
+    We may use AI-enabled tools to screen and assess applicants against the criteria for this position. This helps our recruiters identify potentially qualified candidates, but it doesn't limit the applications our recruiters may review or consider.
+
+    Beware of Scams: Cohere will never ask for payment or third-party services (e.g., CV writing) as part of our hiring process. All legitimate roles are listed on the Cohere careers page and LinkedIn only, with all communications from Cohere employees coming from an @cohere.com or @cw.cohere email alias. If jobs are viewed on other sites then please verify these through our official careers https://cohere.com/careers page.
+- id: ashby:trulioo:835506e4-f3af-4309-97c3-73968bb0139e
+  source: ashby
+  company: Trulioo
+  title: Intermediate Software Engineer (Agentic AI Verification)
+  location_raw: San Diego, CA; Vancouver, BC (Remote)
+  department: Engineering
+  url: https://jobs.ashbyhq.com/trulioo/835506e4-f3af-4309-97c3-73968bb0139e
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['San Diego, CA', 'Vancouver, BC']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [vertex ai, claude code, github copilot, cursor, python, sql, rest, aws, pyspark, airflow, dagster,
+      spark, presto, trino, hive, terraform, aws cdk]
+  label_notes: 'Listing says ''Vancouver, BC (Remote)'' but the text says the position is based in the San Diego
+    or Vancouver office on a hybrid model (3 days in office) -> remote_ok false. role_type swe (agentic-AI product
+    engineering); ml_ai is defensible. NoSQL left out of tech_stack (a category, not a product). Long tech list:
+    expect partial Jaccard rather than exact match.'
+  description_text: |-
+    Are you ready to embark on a career that truly affects people around the world? Trulioo invites you to be a catalyst for change in the dynamic realm of digital identity verification. As the global front-runner in our industry, we are redefining how businesses grow, innovate and comply online.
+
+    Picture yourself at the forefront of innovation, contributing to our award-winning platform that enables organizations worldwide to quickly onboard customers, optimize costs and combat fraud. Fueled by Silicon Valley support, Trulioo stands as the trusted platform that can verify more than 5 billion people and 700 million business entities spanning 195 countries.
+
+    But Trulioo is more than a tech company. We are a united force of dedicated experts committed to establishing trust online - and we’re proud to be recognized as a BC Top Employer for the second consecutive year, reflecting our commitment to an inclusive, collaborative, and people-first workplace.
+
+    Headquartered in Vancouver and with strategic hubs in San Diego and Dublin, we foster a culture of collaboration and open communication. Our offices support a hybrid model and staff typically work three days per week at a hub location. Join us where excitement meets innovation and contribute to a world where trust and technology unite.
+
+    What We Offer
+
+    - Comprehensive Benefits: We provide a robust benefits package for full-time, permanent employees, including health, dental, and vision coverage, retirement plans with company match, paid time off, parental leave, and an annual education & training stipend (equivalent to $1,000 in local currency). Specific benefits may vary by location and will be discussed further during the interview process.
+
+    - Flexible Hybrid Working Environment: Our offices are designed to support both collaboration and flexibility. Enjoy weekly lunches, quality coffee, and regular social events. Many locations also feature parent rooms, on-site gyms, comfortable lounges, and adaptable workstations to support your comfort and productivity.
+
+    - Wellness: We care about your well-being. Team members have access to wellness workshops and events, as well as a complimentary Headspace subscription to help you stay focused, grounded, and energized.
+
+    - Employee Resource Groups: Belonging is an important part of doing your best work. Our ERGs provide an inclusive space, support and community for employees of diverse backgrounds and allies. We host informative, fun sessions and celebrations that are often open to the entire organization.
+
+    POSITION SUMMARY:
+
+    Reporting to the Senior Director, Engineering, the Intermediate Software Engineer will be responsible for building and hardening Trulioo's Agentic AI Verification capabilities, taking agent-based verification workflows from proof-of-concept to production-grade systems. This role involves designing test cases and evaluation checks for agent behavior, contributing to the data pipelines that feed the agents, and partnering with Product and senior engineers to turn business requirements into shipped features.
+
+    This role is expected to leverage AI and emerging technologies to improve productivity, enhance decision-making, and continuously optimize how work is performed.
+
+    This is a full-time, permanent position based out of our San Diego or Vancouver office, working on a hybrid model (3 days per week in-office).
+
+    WHAT YOU'LL BE DOING:
+
+    - Build and ship agent capabilities (e.g., Vertex AI-based Discovery Agents) from design through production, owning your slice of the SDLC, implementation, testing, and deployment.
+
+    - Harden proof-of-concept agent code into production-grade quality, strengthening error handling, observability, and testing, with an eye on cost and latency.
+
+    - Design test cases and evaluation checks for non-deterministic agent behavior, a distinct skill from testing traditional deterministic code.
+
+    - Build and maintain data ingestion and pipeline work that feeds the agent, using AWS and big-data tooling.
+
+    - Partner with Product and senior engineers to translate business requirements into shipped features.
+
+    - Contribute to production support: monitoring, alerting, and incident response for an AI-driven service.
+
+    - Leverage AI and emerging technologies to improve productivity, streamline workflows, and identify opportunities for continuous improvement while ensuring the responsible, secure, and compliant use of AI tools.
+
+    - Use AI coding assistants (e.g., Claude Code, GitHub Copilot, Cursor) as a routine part of your development workflow, with a clear habit of reviewing and verifying generated output before it ships.
+
+    WHAT YOU'LL BRING:
+
+    - Bachelor's or Master's degree in Computer Science, Data Science, Engineering, or a closely related field.
+
+    - 2-4 years of experience in a software engineering or development role.
+
+    - A self-starter mindset, comfortable with ambiguity and figuring things out rather than waiting for a fully specified task.
+
+    - A strong collaborator who communicates clearly and works well alongside more senior engineers.
+
+    - Solid foundation in Python and/or another backend language, with the ability to write clean, readable, testable code.
+
+    - Working knowledge of SQL and/or NoSQL databases, and experience with basic API design (REST at minimum).
+
+    - Experience with the following tools/technology: AWS, and exposure to data pipeline tools such as PySpark or Airflow.
+
+    - Comfortable using AI coding assistants as a routine part of your workflow, and have built at least one project involving an LLM doing more than single-shot Q&A – calling tools/functions, chaining steps, or coordinating multiple steps toward a goal.
+
+    NICE TO HAVE:
+
+    - Exposure to orchestration or big-data tools (Apache Airflow, Dagster, Spark, Presto/Trino, Hive).
+
+    - Exposure to infrastructure-as-code (Terraform, AWS CDK).
+
+    - Interest or coursework in identity verification, fraud, security, or fintech.
+
+    INTERVIEW PROCESS:
+
+    - Recruiter Interview: 30 minutes
+
+    [... description truncated]
+- id: lever:waabi:0fd4e30b-9bd1-4b53-9043-6088457363cb
+  source: lever
+  company: Waabi
+  title: Research Internship/Co-op
+  location_raw: Toronto, ON; San Francisco, CA; Remote US (Hybrid)
+  department: Internships / Co-ops
+  url: https://jobs.lever.co/waabi/0fd4e30b-9bd1-4b53-9043-6088457363cb
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON', 'San Francisco, CA', Remote (US)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: research
+    tech_stack: [python, c++]
+  label_notes: 'No term or dates stated. ''Remote US (Hybrid)'': Lever appends the posting''s workplace type, so
+    the role is tagged hybrid while listing a US-remote location; labeled remote_ok true because a remote location
+    is offered (only for the US). Canada-eligible through Toronto (CAD range given).'
+  description_text: |-
+    Waabi, founded by AI visionary Raquel Urtasun, is the leader in Physical AI. With a world-class team, we're unlocking the next era of autonomous transportation with technology that's powering commercial autonomous trucks and robotaxis. Waabi is backed by and partners with world leaders in AI, automotive, logistics, and deep tech.
+
+    With offices in Toronto, San Francisco, Dallas, and Pittsburgh, Waabi is growing quickly and looking for diverse, innovative and collaborative candidates who want to impact the world in a positive way. To learn more visit: www.waabi.ai
+
+    You will...
+    Be part of a team of multidisciplinary Research Scientists and Engineers using an AI-first approach to enable safe self-driving at scale.
+    Lead or Contribute to an AI research project, pushing the frontiers of the field by developing new algorithms for Autonomous Vehicle (AV). This includes topics such as perception, prediction, motion planning, controls, simulation, mapping, localization, core AI, etc.
+    Design, implement, train, and optimize novel algorithms on self-driving vehicles and various production systems.
+    Be encouraged to submit and publish work externally at top machine learning, computer vision, and robotics conferences (NeurIPS, ICLR, ICML, CVPR, etc.), post to our company blog, and release open source projects.
+
+    Qualifications:
+    Bachelors or MS/PhD degree in Computer Science, Engineering, AI, Machine Learning, Computer Vision, Robotics and/or similar technical field(s) of study.
+    Demonstrated research/software engineering experience: through previous internships, work experience, coding competitions, and/or research projects and papers.
+    Strong quantitative background and coursework in or working knowledge of linear algebra, calculus, and probability.
+    Proficient in reading and coding in Python and/or C++..
+    Open-minded and collaborative team player with willingness to help others.
+    Passionate about self-driving technologies, solving hard problems, and creating innovative solutions.
+
+    Application Instructions:
+    To be considered for an internship/co-op, please add your most up to date academic transcripts alongside with your resume for further review.
+
+    The US hourly range for this role is: $40- $55 USD and the Canada hourly range for this role is: $45-$60 CAD in addition to competitive perks & benefits. Waabi US Inc. and Waabi Canada Inc.'s yearly salary ranges are determined based on several factors in accordance with the Company’s compensation practices. The salary base range is reflective of the minimum and maximum target for new hire salaries for the position across all US and Canada locations.
+
+    Perks/Benefits:
+    Waabi provides a competitive benefits package that includes:
+    Daily drinks, snacks and catered meals (when in office)
+    Regularly scheduled team building activities and social events
+    As we grow, this list continues to evolve!
+
+    Waabi is a technology start-up building technologies to transform the way the world moves. Join our talented team to be a part of the future and to make an impact!
+
+    Waabi is an equal opportunity employer. We celebrate diversity and are committed to creating a supportive, inclusive, and accessible workplace for all our employees. We seek applicants of all backgrounds and identities, across race, color, ethnicity, national origin or ancestry, age, citizenship, religion, sex, sexual orientation, gender identity or expression, military or veteran status, marital status, pregnancy or parental status, caregiver status, disability, or any other characteristic protected by law. We make workplace accommodations for qualified individuals with disabilities as required by applicable law. If reasonable accommodation is needed to participate in the job application or interview process please let our recruiting team know.
+- id: lever:waabi:62700386-b9db-4c78-aec3-5ef59cbe841e
+  source: lever
+  company: Waabi
+  title: 2026 Intern, PhD Research Scientist
+  location_raw: Toronto, ON; Pittsburgh, PA; San Francisco, CA
+  department: Internships / Co-ops
+  url: https://jobs.lever.co/waabi/62700386-b9db-4c78-aec3-5ef59cbe841e
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON', 'Pittsburgh, PA', 'San Francisco, CA']
+    remote_ok: false
+    canada_eligible: true
+    role_type: research
+    tech_stack: [python, c++]
+  label_notes: AMBIGUOUS. PhD research intern. Title says '2026' with no season or dates, so no term can be formed
+    (terms empty); a model might guess a 2026 term.
+  description_text: |-
+    Waabi, founded by AI visionary Raquel Urtasun, is the leader in Physical AI. With a world-class team, we're unlocking the next era of autonomous transportation with technology that's powering commercial autonomous trucks and robotaxis. Waabi is backed by and partners with world leaders in AI, automotive, logistics, and deep tech.
+
+    With offices in Toronto, San Francisco, Dallas, and Pittsburgh, Waabi is growing quickly and looking for diverse, innovative and collaborative candidates who want to impact the world in a positive way. To learn more visit: www.waabi.ai
+
+    You will...
+    Be part of a team of multidisciplinary Research Scientists and Engineers using an AI-first approach to enable safe self-driving at scale.
+    Lead or Contribute to an AI research project, pushing the frontiers of the field by developing new algorithms for Autonomous Vehicle (AV). This includes topics such as perception, prediction, motion planning, controls, simulation, mapping, localization, core AI, etc.
+    Design, implement, train, and optimize novel algorithms on self-driving vehicles and various production systems.
+    Be encouraged to submit and publish work externally at top machine learning, computer vision, and robotics conferences (NeurIPS, ICLR, ICML, CVPR, etc.), post to our company blog.
+
+    Qualifications:
+    Pursuing PhD degree in Computer Science, Engineering, AI, Machine Learning, Computer Vision, Robotics and/or similar technical field(s) of study.
+    Demonstrated research/software engineering experience: through previous internships, work experience, coding competitions, and/or research projects and papers.
+    At least one publication in top Machine Learning, Computer Vision, or Robotics conferences.
+    Strong quantitative background and coursework in or working knowledge of linear algebra, calculus, and probability.
+    Proficient in reading and coding in Python and/or C++..
+    Open-minded and collaborative team player with willingness to help others.
+    Passionate about self-driving technologies, solving hard problems, and creating innovative solutions.
+
+    Application Instructions:
+    To be considered for an internship/co-op, please add your most up to date academic transcripts alongside with your resume for further review.
+
+    The US hourly range for this role is: $60 USD and the Canada hourly range for this role is: $60-$65 CAD in addition to competitive perks & benefits. Waabi US Inc. and Waabi Canada Inc.'s yearly salary ranges are determined based on several factors in accordance with the Company’s compensation practices. The salary base range is reflective of the minimum and maximum target for new hire salaries for the position across all US and Canada locations.
+
+    Perks/Benefits:
+    Waabi provides a competitive benefits package that includes:
+    Daily drinks, snacks and catered meals (when in office)
+    Regularly scheduled team building activities and social events
+    As we grow, this list continues to evolve!
+
+    Waabi is a technology start-up building technologies to transform the way the world moves. Join our talented team to be a part of the future and to make an impact!
+
+    Waabi is an equal opportunity employer. We celebrate diversity and are committed to creating a supportive, inclusive, and accessible workplace for all our employees. We seek applicants of all backgrounds and identities, across race, color, ethnicity, national origin or ancestry, age, citizenship, religion, sex, sexual orientation, gender identity or expression, military or veteran status, marital status, pregnancy or parental status, caregiver status, disability, or any other characteristic protected by law. We make workplace accommodations for qualified individuals with disabilities as required by applicable law. If reasonable accommodation is needed to participate in the job application or interview process please let our recruiting team know.
+- id: lever:waabi:39f0345f-177c-4feb-8c27-7de26645eb14
+  source: lever
+  company: Waabi
+  title: Senior / Staff Software Engineer, Motion Planning
+  location_raw: Remote US & Canada; Dallas, TX; Phoenix, AZ; Pittsburgh, PA; San Francisco, CA; Toronto, ON (Hybrid)
+  department: Software
+  url: https://jobs.lever.co/waabi/39f0345f-177c-4feb-8c27-7de26645eb14
+  expected:
+    is_internship: false
+    terms: []
+    locations: [Remote (Canada), 'Dallas, TX', 'Phoenix, AZ', 'Pittsburgh, PA', 'San Francisco, CA', 'Toronto, ON']
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [python, c++]
+  label_notes: '''Remote US & Canada'' normalizes to Remote (Canada). The (Hybrid) tag is the posting''s workplace
+    type; remote_ok true because a remote location is listed. Motion planning software -> swe.'
+  description_text: |-
+    Waabi, founded by AI visionary Raquel Urtasun, is the leader in Physical AI. With a world-class team, we're unlocking the next era of autonomous transportation with technology that's powering commercial autonomous trucks and robotaxis. Waabi is backed by and partners with world leaders in AI, automotive, logistics, and deep tech.
+
+    With offices in Toronto, San Francisco, Dallas, and Pittsburgh, Waabi is growing quickly and looking for diverse, innovative and collaborative candidates who want to impact the world in a positive way. To learn more visit: www.waabi.ai
+
+    You will...
+    Design and develop motion planning software and algorithms, building the brain which orchestrates decision making in dynamic, uncertain and interactive traffic scenarios.
+    Be part of a team of multidisciplinary Engineers and Research Scientists using an AI-first approach to enable safe self-driving at scale.
+    Participate and share ideas in technical and architecture discussions, collaborating with researchers and engineers to build a reliable autonomy stack for self-driving vehicles.
+
+    Qualifications:
+    MS/PhD or Bachelor degree with a minimum of 4 years of industry experience in Computer Science, Robotics and/or similar technical field(s) of study.
+    Experience in planning/decision making approaches (e.g., optimal control, optimization based approaches, search methods, probabilistic decision making).
+    Production-quality coding skill in Python or C++.
+    Solid problem solving skills using linear algebra, geometry, statistics & probability.
+    Ability to rapidly prototype and test new algorithms.
+    Open-minded and collaborative team player with the willingness to help others.
+    Able to maintain progress towards long-term goals while working on short-term problems.
+    Passionate about self-driving technologies, solving hard problems, and creating innovative solutions.
+
+    Bonus/nice to have:
+    Experience working in self-driving field.
+    Experience in optimization.
+
+    The US yearly salary range for this role is: $158,000 - $269,000 USD in addition to competitive perks & benefits. Waabi US Inc.’s yearly salary ranges are determined based on several factors in accordance with the Company’s compensation practices. The salary base range is reflective of the minimum and maximum target for new hire salaries for the position across all US locations. Note: The Company provides additional compensation for employees in this role, including equity incentive awards and an annual performance bonus.
+
+    Perks/Benefits:
+    Competitive compensation and equity awards.
+    Health and Wellness benefits encompassing Medical, Dental and Vision coverage (for full-time employees only).
+    Unlimited Vacation.
+    Flexible hours and Work from Home support.
+    Daily drinks, snacks and catered meals (when in office).
+    Regularly scheduled team building activities and social events both on-site, off-site & virtually.
+    As we grow, this list continues to evolve!
+
+    Waabi is a technology start-up building technologies to transform the way the world moves. Join our talented team to be a part of the future and to make an impact!
+
+    Waabi is an equal opportunity employer. We celebrate diversity and are committed to creating a supportive, inclusive, and accessible workplace for all our employees. We seek applicants of all backgrounds and identities, across race, color, ethnicity, national origin or ancestry, age, citizenship, religion, sex, sexual orientation, gender identity or expression, military or veteran status, marital status, pregnancy or parental status, caregiver status, disability, or any other characteristic protected by law. We make workplace accommodations for qualified individuals with disabilities as required by applicable law. If reasonable accommodation is needed to participate in the job application or interview process please let our recruiting team know.
+- id: lever:pointclickcare:214dcfda-6c95-409e-813d-29fded60a908
+  source: lever
+  company: PointClickCare
+  title: Canada-Technical Program Manager (Technical Services, 8 Month-Contract)
+  location_raw: Remote or Mississauga
+  department: PointClickCare
+  url: https://jobs.lever.co/pointclickcare/214dcfda-6c95-409e-813d-29fded60a908
+  expected:
+    is_internship: false
+    terms: []
+    locations: [Remote (Canada), 'Mississauga, ON']
+    remote_ok: true
+    canada_eligible: true
+    role_type: other
+    tech_stack: []
+  label_notes: AMBIGUOUS. An 8-month contract (the length of a co-op) but a professional program-manager contract,
+    not a student role; no dates -> terms empty. 'Remote or Mississauga' with 'Canada-' in the title -> Remote (Canada).
+    Technical program management -> other (product is defensible).
+  description_text: |-
+    At PointClickCare our mission is simple: to help providers deliver exceptional care. And that starts with our people. As a leading health tech company that’s founder-led and privately held, we empower our employees to push boundaries, innovate, and shape the future of healthcare.
+
+    With the largest long-term and post-acute care dataset and a Marketplace of 400+ integrated partners, our platform serves over 30,000 provider organizations, making a real difference in millions of lives. We also reinvest a significant percentage of our revenue back into research and development, ensuring our employees have the resources to innovate and make a lasting impact. Recognized by Forbes as a top private cloud company and honored as one of Canada’s Most Admired Corporate Cultures, we offer flexibility, growth opportunities, and meaningful work.
+
+    At PointClickCare, we empower our people to be the architects of a smarter healthcare future; one that is human-first and accelerated by AI to create meaningful and lasting change. Employees harness AI as a catalyst for creativity, productivity, and thoughtful decision-making. By integrating AI tools into our daily workflows, collaboration is enhanced, outcomes are improved, and every team member has the proficiency to maximize their impact. It all starts with our hiring practices where we uncover AI expertise that complements our mission, and we continue to invest in training and development to nurture innovation throughout the employee journey.
+
+    Join us in redefining healthcare — so it doesn’t just survive, it thrives. To learn more about PointClickCare, check out Life at PointClickCare and connect with us on Glassdoor and LinkedIn.
+
+    **Travel to Office expectations**
+    For Remote Roles: If this role is remote, there will be in-office events that will require travel to and from the Mississauga and/or Salt Lake City office. These will include, but not limited to, onboarding, team events, semi-annual and annual team meetings.
+
+    For Hybrid Roles: If this role is Hybrid, there will be an expectation to reside within commutable distance to the office/location specified in the job listing. This will include, but not limited to, weekly/bi-weekly/monthly events in the office with your specific team. This is a requirement for this role.
+
+    About the role:
+    As a Technical Program Manager within Technical Services, you will be responsible for managing project scheduling, capacity planning, delivery governance, and go-live readiness for Data Migration initiatives. Working closely with Sales, Project Managers, Customer Success Managers, Resource Management, customers, and technical delivery teams, you will ensure projects are prioritized, planned, and delivered on schedule while balancing organizational capacity and business objectives.
+    You will play a key role in driving operational excellence through process improvement, automation, AI-enabled solutions, and data-driven decision-making that enhance delivery efficiency, scalability, and customer outcomes. Success in this role requires strong stakeholder management, strategic problem-solving, and the ability to navigate multiple priorities in a fast-paced, customer-focused environment.
+
+    Reporting into the Sr Manager, Technical Services
+
+    Key Responsibilities:
+    Understand customer requirements, technical dependencies, and Data Migration delivery processes to support successful project execution.
+    Serve as the primary interface between Sales, Project Managers, Resource Management, and delivery teams for project intake, scheduling, prioritization, and delivery coordination.
+    Manage project demand, resource forecasting, and capacity planning activities to balance project workload, delivery commitments, and organizational priorities.
+    Coordinate Data Migration project go-live readiness and execution activities with Project Managers and technical delivery teams.
+    Monitor project portfolios, identify risks, issues, and dependencies, and drive mitigation and escalation activities when required.
+    Maintain project requests, schedules, dashboards, operational metrics, templates, and project documentation.
+    Lead post-project reviews, root cause analysis activities, and continuous improvement initiatives to improve delivery outcomes and operational efficiency.
+    Successfully manage multiple competing priorities while ensuring alignment to customer commitments and business objectives.
+    Identify, evaluate, and support the implementation of AI-powered tools, AI agents, copilots, and intelligent automation solutions that improve project scheduling, reporting, capacity planning, operational visibility, knowledge management, and decision-making.
+    Ensure adherence to governance, security, compliance, data privacy, and responsible AI practices.
+
+    [... description truncated]
+- id: lever:zensurance:f1935404-7e5e-43f9-8eca-af69250eb684
+  source: lever
+  company: Zensurance
+  title: Senior QA Software Developer (Remote First)
+  location_raw: Toronto, ON (Remote)
+  department: Engineering
+  url: https://jobs.lever.co/zensurance/f1935404-7e5e-43f9-8eca-af69250eb684
+  expected:
+    is_internship: false
+    terms: []
+    locations: [Remote (Canada)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [mongodb, express, react, node.js, postgresql, bullmq, playwright, cypress, webdriverio, selenium,
+      javascript, typescript, jest, mocha, browserstack, axe, lighthouse, salesforce, sonarcloud, sonarqube, terraform,
+      aws, github actions, github copilot, chatgpt]
+  label_notes: Remote-first within Canada; 'Toronto, ON (Remote)' normalizes to Remote (Canada). QA automation developer
+    -> swe. tech_stack is exactly at the 25-item cap; SAST/DAST and 'MERN' (spelled out) left out.
+  description_text: |-
+    About Us:
+
+    Zensurance is redefining commercial insurance for Canadian businesses.
+
+    As a leading InsurTech, we make getting the right coverage simple, fast, and accessible through a digital-first experience. Our platform combines advanced technology with deep industry expertise to deliver tailored insurance solutions that help businesses thrive.
+
+    Zensurance has been recognized for its rapid growth and industry impact:
+
+    ✅ Deloitte’s Technology Fast 50 (2023, 2024, 2025)
+    ✅ Deloitte’s Technology Fast 500 (2024, 2025)
+    ✅ Top Insurance Employers (2022)
+
+    At Zensurance, we value ownership, collaboration, and innovation. Our team thrives on solving complex challenges, challenging the status quo, and making a real impact in an industry ready for change.
+
+    If you're looking to build something meaningful in a fast-growing, customer-focused company, we’d love to hear from you!
+
+    We’re looking for a Senior QA Software Developer to join our Core Group.
+    Reporting to an Engineering Manager, you won’t just be testing - you’ll be designing the future of quality at Zensurance.
+    The Core Group is the engine room of our platform, consisting of three specialized teams: Docs, Renewals and Pricing, and Core Red. Together, we build and maintain the robust insurance data suite, business rules, and documentation that define our customers' policies. Our stack is primarily MERN (MongoDB, Express, React, Node), and we’ve recently adopted PostgreSQL and BullMQ to push our capabilities even further.
+    We’re looking for someone who treats quality as a feature, not a hurdle, and who is excited to help us scale a high-traffic insurance platform.
+    This is a remote-first role within Canada. #LI-Remote
+
+    Responsibilities:
+    Automation & Framework Design
+
+    - Scalable Frameworks: Design, build, and maintain reusable test automation frameworks (integration, E2E, load) that minimize maintenance and maximize reliability. (
+    - Modern Tooling: Leverage AI-assisted development and agentic coding workflows to accelerate test creation and stay ahead of the curve.
+    - Seamless Integration: Partner with developers to bake automated tests directly into our CI/CD pipelines, ensuring quality is never an afterthought.
+
+    Product Quality & Strategy
+
+    - Full-Spectrum Testing: Balance automated suites with manual exploratory smoke testing and functional testing to ensure every user story meets our "gold standard" before release.
+    - System Resilience: Identify coverage gaps and proactively propose improvements to reduce system fragility and long-term technical debt.
+    - Security & Accessibility: Support our commitment to users by utilizing SAST/DAST tools for security and Axe/Lighthouse to ensure our products are accessible to everyone.
+
+    Leadership & Collaboration
+
+    - Technical Mentorship: Guide intermediate and junior engineers on testing best practices and the responsible, efficient use of AI coding tools.
+    - Design Influence: Actively participate in design discussions and Agile ceremonies to advocate for testability, maintainability, and clear acceptance criteria.
+    - Culture of Ownership: Promote a shared responsibility for quality across the entire engineering team, documenting strategies and automation patterns for everyone to use.
+    - Data-Driven Improvement: Monitor production incidents and operational data to turn real-world "lessons learned" into future quality improvements.
+
+    Qualifications:
+    - 5–8+ years of experience in Test Automation and Quality Assurance.
+    - Strong experience with modern E2E automation frameworks (Playwright, Cypress, WebDriverIO, Selenium, or similar).
+    - Experience with JavaScript and/or TypeScript.
+    - Experience with unit and integration testing frameworks (Jest, Mocha, or similar).
+    - Experience with API testing and automation.
+    - Experience with BrowserStack or similar cross-browser testing platforms.
+    - Experience with manual testing approaches (Functional, Exploratory, UAT).
+    - Experience working within Agile/Scrum teams.
+    - Ability to critically review and validate AI-generated outputs for correctness, security, and maintainability.
+    - Strong communication skills and ability to collaborate cross-functionally.
+    - Proven ability to take ownership of quality initiatives within a team.
+
+    Nice to have:
+    - Experience with Salesforce or Salesforce-integrated systems.
+    - Experience testing microservices and micro frontends.
+    - Experience with monorepos or trunk-based development.
+    - Experience with SonarCloud / SonarQube.
+    - Experience with Infrastructure as Code (Terraform, AWS).
+    - Experience building AI-assisted test generation workflows.
+    - Experience with accessibility testing tools.
+    - Familiarity with CI/CD pipelines (e.g., GitHub Actions).
+    - Experience using AI-assisted development tools (e.g., GitHub Copilot, ChatGPT, or similar) to improve engineering efficiency.
+    - Understanding of agentic coding concepts, including prompt engineering, AI-generated test case creation, and validating AI-produced code.
+
+    Join Our Engineering Team - Where Growth Meets Innovation
+
+    At Zensurance, we believe engineering is more than just writing great code. It’s about learning, growing, and building something meaningful together. Our remote-first team is a place where you’ll be challenged, supported, and encouraged to thrive. Here’s what makes our team special:
+
+    ✔ A Leadership Team That’s Got Your Back
+    Our experienced and approachable engineering leaders aren’t just here to manage - they’re here to mentor, guide, and help you unlock your full potential.
+
+    ✔ Fuel Your Growth
+    We invest in your learning with training budgets, professional development programs, and mentorship opportunities. Want to explore a new tech stack or level up your skills? We can help get you there.
+
+    ✔ A Culture of Sharing & Support
+    From Power-Ups and book clubs to tech talks and hackathons, we believe in learning from each other. Have a cool idea or an interesting challenge? Let’s solve it together.
+
+    [... description truncated]
+- id: lever:pointclickcare:2e2fd17b-7360-449b-9fd4-de722f49a51f
+  source: lever
+  company: PointClickCare
+  title: Senior Applied Researcher AI/ML (US)
+  location_raw: Remote - US
+  department: PointClickCare
+  url: https://jobs.lever.co/pointclickcare/2e2fd17b-7360-449b-9fd4-de722f49a51f
+  expected:
+    is_internship: false
+    terms: []
+    locations: [Remote (US)]
+    remote_ok: true
+    canada_eligible: false
+    role_type: ml_ai
+    tech_stack: [python, java, sql, azure data lake, spark, databricks, hugging face transformers, numpy, scipy,
+      pandas, scikit-learn, pytorch, lightgbm, azure, aws, gcp, ragas, langsmith, langchain, llamaindex]
+  label_notes: US-only remote. 'Applied Researcher AI/ML' -> ml_ai (research is defensible). LoRA/QLoRA/PEFT left
+    out (methods, not tools).
+  description_text: |-
+    At PointClickCare our mission is simple: to help providers deliver exceptional care. And that starts with our people. As a leading health tech company that’s founder-led and privately held, we empower our employees to push boundaries, innovate, and shape the future of healthcare.
+
+    With the largest long-term and post-acute care dataset and a Marketplace of 400+ integrated partners, our platform serves over 30,000 provider organizations, making a real difference in millions of lives. We also reinvest a significant percentage of our revenue back into research and development, ensuring our employees have the resources to innovate and make a lasting impact. Recognized by Forbes as a top private cloud company and honored as one of Canada’s Most Admired Corporate Cultures, we offer flexibility, growth opportunities, and meaningful work.
+
+    At PointClickCare, we empower our people to be the architects of a smarter healthcare future; one that is human-first and accelerated by AI to create meaningful and lasting change. Employees harness AI as a catalyst for creativity, productivity, and thoughtful decision-making. By integrating AI tools into our daily workflows, collaboration is enhanced, outcomes are improved, and every team member has the proficiency to maximize their impact. It all starts with our hiring practices where we uncover AI expertise that complements our mission, and we continue to invest in training and development to nurture innovation throughout the employee journey.
+
+    Join us in redefining healthcare — so it doesn’t just survive, it thrives. To learn more about PointClickCare, check out Life at PointClickCare and connect with us on Glassdoor and LinkedIn.
+
+    **Travel to Office expectations**
+    For Remote Roles: If this role is remote, there will be in-office events that will require travel to and from the Mississauga and/or Salt Lake City office. These will include, but not limited to, onboarding, team events, semi-annual and annual team meetings.
+
+    For Hybrid Roles: If this role is Hybrid, there will be an expectation to reside within commutable distance to the office/location specified in the job listing. This will include, but not limited to, weekly/bi-weekly/monthly events in the office with your specific team. This is a requirement for this role.
+
+    The Role
+    Reporting to the Vice President, Advanced Technology, you will be a member of the Advanced Technology / Applied AI Research team at PointClickCare.
+
+    You are a talented Senior Applied Researcher in AI / Machine Learning, looking to make a difference solving critical customer and business challenges in the dynamic healthcare market. You thrive applying creative and pragmatic solutions—from framing problems and preparing data, to selecting appropriate techniques, building and evaluating model systems—that will truly transform healthcare and enable our customers to deliver exceptional care.
+
+    Responsibilities
+    - Apply machine learning and AI techniques including GenAI and LLM-based approaches to develop model systems and solutions, collaborating across functions to scale and integrate these into large-scale cloud-based SaaS production environments for healthcare.
+    - Work with product leaders, clinical informaticists, data scientists, UI/UX researchers, engineers, and healthcare professionals to design and deliver high value solutions.
+    - Design, build and evaluate solutions that may involve structured or unstructured data for healthcare use cases, delivering capabilities such as predictive models, summarization, recommenders, semantic search, extraction, classification, or other AI/ML applications
+    - Perform research and experimentation to select appropriate approaches, algorithms, and evaluation methods, and execute the R&D needed to deliver production-ready model systems.
+    - Perform data collection, cleaning, analysis, prompt tuning, parameter fine-tuning, model training, development, and evaluation—using existing or developing new tools or workflows as needed.
+    - Apply and help evolve responsible AI evaluation practices, using approaches and frameworks such as LLM-as-judge, RAGAS, and LangSmith, and design and implement custom model performance and quality metrics as needed to ensure model quality, fairness, and safety at scale.
+    - Contribute to a collaborative team culture, sharing knowledge and helping develop new capabilities across the organization.
+
+    Required Experience
+    - Ph.D grad, with 1+ years related industry experience OR Masters grad with 4+ years industry experience--including at least 1 year directly related to healthcare ML/AI
+    - Proven industry experience through multiple major product releases in a commercial SaaS environment.
+    - Hands-on experience working with healthcare data (e.g. EHR, ADT, clinical notes).
+    - Proficiency in Python. Proficiency in Java or other languages helpful.
+    - Proficiency with SQL and data engineering for AI/ML applications.
+    - Experience working with large datasets using big data frameworks (e.g. Azure Data Lake, Apache Spark or Databricks)
+    - Solid understanding of transformer models and LLM-based approaches, including hands-on experience with prompt tuning and PEFT methods (e.g. LoRA, QLoRA) using frameworks such as Hugging Face Transformers.
+    - Experience building and evaluating models using modern ML packages such as NumPy, SciPy, Pandas, Scikit-learn, PyTorch, and LightGBM.
+    - Experience building and deploying models using public cloud infrastructure (Azure, AWS, or Google Cloud), including familiarity with version control, CI/CD pipelines, and scaling considerations for production ML systems at SaaS scale.
+    - Strong communication and collaboration skills; comfortable working on a distributed team.
+    - Experience with one or more of: reinforcement learning or RLHF, NLP techniques for summarization, extraction, classification, or semantic search, retrieval-augmented generation (RAG) pipelines and/or agentic frameworks (e.g. LangChain, LlamaIndex).
+
+    #-LI-AV1
+    #LI- remote
+
+    [... description truncated]
+- id: greenhouse:later:8604889002
+  source: greenhouse
+  company: Later
+  title: AI Automation Co-op (Spring 2027)
+  location_raw: Vancouver, British Columbia, Canada
+  department: Technology
+  url: https://job-boards.greenhouse.io/later/jobs/8604889002
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: ['Vancouver, BC']
+    remote_ok: false
+    canada_eligible: true
+    role_type: ml_ai
+    tech_stack: [python, javascript, c#, zapier, make, n8n]
+  label_notes: HARD CASE. Title says 'Spring 2027' (the normalizer maps Spring to Summer), but the text says the
+    role begins in January 2027; BC universities call Jan-Apr the spring term. Labeled Winter 2027 from the start
+    date. Remote not stated -> false. AI/LLM workflow automation -> ml_ai (other or swe defensible). 'make' is the
+    Make.com automation tool.
+  description_text: |-
+    Later is the world’s most intelligent influencer marketing company, built to give brands the confidence to create unforgettable campaigns. By combining real creator relationships, trusted intelligence, and expert guidance, Later removes fear and guesswork from one of marketing’s most visible investments.
+
+    Built on a native, AI-powered platform and more than a decade of proprietary data—including billions of social interactions, impressions, and $2.4B+ in verified influencer-driven purchases—Later helps teams understand what will work before they launch.
+
+    By combining trusted insight with expert guidance, Later removes guesswork from influencer marketing, enabling brands to choose the right creators, execute fully managed campaigns, and drive meaningful growth across awareness, engagement, and revenue. Trusted by leading enterprise brands including Nike, Wayfair, Unilever, and Southwest Airlines, Later bridges creativity and performance so campaigns don’t just look good—they deliver results. Learn more at later.com.
+
+    About this position:
+
+    We're looking for an AI Automation Co-op to embed with teams across Later and help replace manual, repetitive work with AI-powered tooling. This is a hands-on role at the intersection of building and learning: you'll contribute directly to automations that create real business impact across Operations, Finance, Marketing, Customer Success, and beyond while being supported and coached throughout. This role will begin in January 2027.
+
+    You'll work closely with Later's AI Automation team and get direct exposure to how AI tools, APIs, and no-code platforms come together to solve real workflow problems across Later's three lines of business (Later Influence, Later Social, and Later Creator). If you're curious about applied AI, love tinkering with new tools, and want to leave a term with a portfolio of things you actually shipped, this is the role for you.
+
+    What you'll be doing:
+
+    Discovery & Problem Scoping
+
+    - Shadow and interview non-technical stakeholders across Operations, Finance, Marketing, and Customer Success to understand their day-to-day workflows.
+    - Help identify repetitive, manual tasks that are strong candidates for automation.
+    - Contribute to translating fuzzy workflow problems into clear, scoped technical solutions with guidance from the team.
+
+    Building & Shipping
+
+    - Build working automations and internal tools using AI-native platforms, APIs, and no-code and low-code tools.
+    - Ship v1 prototypes quickly so stakeholders can validate value before investment grows.
+    - Wire together LLMs, agents, and prompt design patterns with existing systems to deliver real workflow outcomes.
+    - Iterate on automations based on stakeholder feedback and real-world use.
+
+    Documentation & Reliability
+
+    - Write clear documentation so automations can run unattended and teammates can understand what was built.
+    - Contribute to error handling and basic monitoring so automations recover gracefully.
+    - Help maintain a library of reusable templates, prompt patterns, and integration examples.
+
+    Enablement & Collaboration
+
+    - Support working sessions and lightweight training that helps non-technical colleagues understand and use the automations you build.
+    - Collaborate with engineers, operations teammates, and other stakeholders to deliver solutions that work in practice.
+    - Share what you learn openly, contributing to Later's growing citizen-developer community.
+
+    What success looks like:
+
+    - By the end of your term, you have at least 2-3 automations in production with documented business impact (hours saved, error rates reduced, or cycle times shortened) across different teams.
+    - Stakeholders can use and understand the automations you built without needing you to explain them every time, because you wrote documentation that actually works.
+    - You've grown your fluency with AI-native tools, APIs, and no-code platforms and can talk clearly about the tradeoffs of different approaches.
+    - You've contributed at least one reusable component, prompt template, or integration pattern to Later's shared automation library.
+    - You leave the term having built real things that are still running, and with a clearer sense of where you want to take your career in applied AI and automation.
+
+    What you bring:
+
+    - Currently enrolled in a Computer Science, Software Engineering, Data Science, or related program, or equivalent practical experience.
+    - Some experience building with code (Python, JavaScript, C# or similar) and comfort picking up new tools quickly.
+    - Curiosity about AI and automation: you've experimented with LLMs, prompt design, or no-code tools and want to go deeper.
+    - A bias toward action: you'd rather ship something imperfect and learn from it than wait for a perfect plan.
+    - Strong written and verbal communication skills, you can explain a technical idea to someone who doesn't code.
+    - Comfort with ambiguity: you can make progress on a loosely defined problem without needing every detail up front.
+    - Familiarity with APIs, scripting, or automation tools (Zapier, Make, n8n, or similar) is a bonus.
+    - Any experience with data: pulling it, cleaning it, and reasoning about what it means, is a plus.
+
+    How you work:
+
+    [... description truncated]
+- id: greenhouse:later:8889650002
+  source: greenhouse
+  company: Later
+  title: Data Science Co-op
+  location_raw: Vancouver, British Columbia, Canada
+  department: Data
+  url: https://job-boards.greenhouse.io/later/jobs/8889650002
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: ['Vancouver, BC']
+    remote_ok: false
+    canada_eligible: true
+    role_type: data
+    tech_stack: [r, python, sql, spark, aws, docker, flask, plumber]
+  label_notes: 4-month co-op starting January 2027 = Winter 2027 (possible extension not counted).
+  description_text: |-
+    Later is the world’s most intelligent influencer marketing company, built to give brands the confidence to create unforgettable campaigns. By combining real creator relationships, trusted intelligence, and expert guidance, Later removes fear and guesswork from one of marketing’s most visible investments.
+
+    Built on a native, AI-powered platform and more than a decade of proprietary data—including billions of social interactions, impressions, and $2.4B+ in verified influencer-driven purchases—Later helps teams understand what will work before they launch.
+
+    By combining trusted insight with expert guidance, Later removes guesswork from influencer marketing, enabling brands to choose the right creators, execute fully managed campaigns, and drive meaningful growth across awareness, engagement, and revenue. Trusted by leading enterprise brands including Nike, Wayfair, Unilever, and Southwest Airlines, Later bridges creativity and performance so campaigns don’t just look good—they deliver results. Learn more at later.com.
+
+    About this position:
+
+    Later is looking for a full-time co-op starting January 2027 to help support the product team; you will be working on new product features and having a meaningful impact on the company. If you enjoy tackling challenges, learning about new technologies, thinking of creative solutions, and sometimes blazing a new trail, we want to talk to you. This position is the perfect opportunity for you to learn and grow. This will be an 4-month term with a potential of extension.
+
+    Technical Qualifications:
+
+    - In the 3rd year of statistics, computer science, math, physics, economics, or other technical undergraduate program; consideration may be given to graduate students as well. Creative thinker, fast learner, good grades.
+    - Strong coding ability in R and/or Python, passionate about data science and the technology industry. Some experience with SQL is a plus.
+    - Experience with and technical understanding of statistical modeling & machine learning techniques.
+    - Experience with big data/deploying models into production is a plus (Spark, AWS, Docker, Flask, plumber).
+    - A passion for social media (Instagram, TikTok, Pinterest, etc.) is a big plus.
+
+    We are committed to building an inclusive, supportive place for you to do the best and most rewarding work of your career. If you identify with any of the following, we encourage you to apply!
+
+    - A passion for data science - you care about performing unbiased & rigorous analysis.
+    - Excellent problem-solving skills - you come with not only creative solutions but also understand the right questions that need to be asked when needed.
+    - Strong customer service orientation - everything we do is in service of our clients.
+    - Business acumen - making sure your work is practical and useful
+    - Strong communication skills - we are a team, we expect you to work collaboratively across all functions. You will have constant communication with non-technical stakeholders.
+    - Ability to excel in a fast-paced, agile environment where critical thinking and strong problem solving skills are imperative.
+
+    Application Process:
+
+    If you think you would be a fit, we’d love to hear from you. Please submit your resume, cover letter, and an unofficial transcript - please highlight relevant courses or other academic achievements, competitions etc. And if you have a personal portfolio or Git account, send us the links so we can see how you shine.
+
+    Our approach to compensation:
+
+    We take a market-based & data-driven approach to compensation. We leverage data from trusted third-party compensation sources to help us understand the market value of a role based on function, level, geographic location, and scope. We evaluate compensation bi-annually, including performance and market-related factors.
+
+    Our salaries are benchmarked against market Total Cash Compensation for the geographic location of our job posting. Compensation for some roles is structured as On Target Earnings (OTE = base + commission/variable) while for others it is structured as Salary only.
+
+    To comply with local legislation and ensure transparency, we share salary ranges on all job postings. Skills, experience and other factors help determine the final salary we offer which may vary from the original range posted.
+
+    Additionally, all permanent team members are granted stock options and are eligible to participate in various benefits plans as part of their overall compensation package.
+
+    Salary Range: $4,000 per month
+
+    Where we work:
+
+    We have offices in Boston, MA; Vancouver, BC; and Vancouver, WA. For select positions, we are open to hiring fully remote candidates. We post our positions in the location(s) where we are open to having the successful candidate be located.
+
+    Diversity, inclusion, and accessibility:
+
+    At Later, we are committed to fostering a culture rooted in an inclusion-first mindset at every level of the company, embracing the importance of hiring and building teams for culture add rather than culture fit. We openly build and maintain unbiased hiring, pay, and promotion practices to create a foundation for an equitable workplace, paving the way for systemic change.
+
+    We are committed to creating a diverse environment and are proud to be an equal opportunity employer. All applications will receive consideration for employment without regard to race, color, religion, gender, gender identity or expression, national origin, disability, or age. Please let us know if you require any accommodations or support during the recruitment process.
+- id: greenhouse:later:8880737002
+  source: greenhouse
+  company: Later
+  title: Data & Analytics Co-op
+  location_raw: Boston, MA
+  department: Data
+  url: https://job-boards.greenhouse.io/later/jobs/8880737002
+  expected:
+    is_internship: true
+    terms: [Winter 2027, Summer 2027]
+    locations: ['Boston, MA']
+    remote_ok: false
+    canada_eligible: false
+    role_type: data
+    tech_stack: [bigquery, dbt, r, python, omni, domo]
+  label_notes: US-only co-op restricted to Northeastern University co-op students, in office 5 days in Boston ->
+    canada_eligible false. January to June 2027 spans Winter and Summer 2027. 'SQL-based data warehouse' not counted
+    as naming SQL (borderline).
+  description_text: |-
+    Later is the world’s most intelligent influencer marketing company, built to give brands the confidence to create unforgettable campaigns. By combining real creator relationships, trusted intelligence, and expert guidance, Later removes fear and guesswork from one of marketing’s most visible investments.
+
+    Built on a native, AI-powered platform and more than a decade of proprietary data—including billions of social interactions, impressions, and $2.4B+ in verified influencer-driven purchases—Later helps teams understand what will work before they launch.
+
+    By combining trusted insight with expert guidance, Later removes guesswork from influencer marketing, enabling brands to choose the right creators, execute fully managed campaigns, and drive meaningful growth across awareness, engagement, and revenue. Trusted by leading enterprise brands including Nike, Wayfair, Unilever, and Southwest Airlines, Later bridges creativity and performance so campaigns don’t just look good—they deliver results. Learn more at later.com.
+
+    This position is only open to students currently enrolled in a co-op program through Northeastern University. The term will run from January to June 2027 and the successful candidates will be expected to work in-office five days a week.
+
+    About the role:
+
+    The Data & Analytics team is looking to change the game when it comes to Analytics for Later. We are implementing new techniques with a strong AI backing while still meeting the needs of a rapidly changing organization. We're looking for a Data & Analytics Co-op to support Later's Data & Analytics team, working day-to-day with a Senior Analyst who will manage your ramp and workload. You'll work with the team to enhance and evolve our data & analytics assets, effectively supporting teams across Later.
+
+    What you'll be doing:
+
+    Analytics Support
+
+    - Help build and maintain data sources, reports, and dashboards leveraging tools like BigQuery, dbt, and vibe code applications
+    - Partner with the Senior Analyst to prioritize and develop a scalable approach to Analytics tools
+    - Pull, validate, and structure data sets for ad hoc analysis
+    - Creatively approach business and client questions and how to measure business impact
+
+    Data Quality & Collaboration
+
+    - Review data for accuracy and completeness before it reaches stakeholders
+    - Setting up guardrails to automate awareness of any known data gaps
+    - Flag and help resolve data quality issues
+    - Communicate findings & impact clearly to the Senior Analyst and broader team
+
+    What success looks like:
+
+    - Collaborate closely with our Analytics team and core Later stakeholders, building relationship and process together
+    - Develop ownership of at least one reporting area, end to end, and can independently troubleshoot & solution common data anomalies
+    - By the end of the term, you've built or improved at least one dashboard or process the team relies on
+
+    What you bring:
+
+    We are committed to building an inclusive, supportive place for you to do the best and most rewarding work of your career. If you identify with any of the following, we encourage you to apply!
+
+    - Currently pursuing a degree in Statistics, Data Science, Computer Science, Economics, Math, or a related technical field
+    - Experience working in BigQuery or a comparable SQL-based data warehouse
+    - Comfort reviewing and validating data sets for accuracy
+    - Clear written and verbal communication skills, comfortable with non-technical stakeholders
+    - Exposure to R, Python, dbt, Omni or Domo is a plus
+
+    Our approach to compensation:
+
+    Salary Range: $21 per hour
+
+    ** please note co-ops are not eligible for company benefits **
+
+    Where we work:
+
+    We have offices in Boston, MA; Vancouver, BC; and Vancouver, WA. For select positions, we are open to hiring fully remote candidates. We post our positions in the location(s) where we are open to having the successful candidate be located.
+
+    Diversity, inclusion, and accessibility:
+
+    At Later, we are committed to fostering a culture rooted in an inclusion-first mindset at every level of the company, embracing the importance of hiring and building teams for culture add rather than culture fit. We openly build and maintain unbiased hiring, pay, and promotion practices to create a foundation for an equitable workplace, paving the way for systemic change.
+
+    We are committed to creating a diverse environment and are proud to be an equal opportunity employer. All applications will receive consideration for employment without regard to race, color, religion, gender, gender identity or expression, national origin, disability, or age. Please let us know if you require any accommodations or support during the recruitment process.
+- id: greenhouse:pinterest:8138039
+  source: greenhouse
+  company: Pinterest
+  title: Software Engineering Intern 2027 (Toronto)
+  location_raw: Toronto, ON, CA
+  department: University Engineering
+  url: https://www.pinterestcareers.com/jobs/?gh_jid=8138039
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: &id001 [python, java, javascript, typescript, go, c++, react]
+  label_notes: VAGUE TERM. Title says '2027' with no season or dates in the snapshot -> terms empty (the graduation
+    date is not a term). Hybrid, 2-3 days in the Toronto office -> remote_ok false. GitHub is mentioned only as
+    evidence of coding experience, so it is left out.
+  description_text: |-
+    About Pinterest:
+
+    Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.
+
+    Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the flexibility to do your best work. Creating a career you love? It’s Possible.
+
+    At Pinterest, AI isn't just a feature, it's a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.
+
+    Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process here.
+
+    We’re looking for inquisitive, collaborative interns to join our engineering teams. Working closely with mentors and product, design, data, and engineers, you’ll learn how large‑scale systems operate and play a meaningful role in building new technologies, features, and tools. Expect real projects, supportive teammates, and plenty of opportunities to explore ideas that make a difference for our teams and Pinners.
+
+    What you’ll do:
+
+    - Complete assigned technical projects with attention to quality, incorporating feedback from your mentor, manager and peers
+    - Execute scoped technical tasks end-to-end that contribute to Pinterest products and infrastructure
+    - Deliver code that is well-documented, tested, and operable
+    - Share ideas, questions and perspectives clearly and respectfully while learning from feedback
+    - Build technical and professional skills through learning and development opportunities
+    - Collaborate with your team and contribute to production-oriented projects that support Pinterest’s goals
+    - Leverage opportunities to connect with leaders and colleagues across Pinterest and participate in intern program events
+    - Foundational exposure to AI concepts or AI-assisted software development through coursework, projects, internships or practical experience
+    - Interest in learning how to use AI-powered technologies responsibly to improve product development, while validating outputs through testing, review and engineering judgment
+
+    What we’re looking for:
+
+    - This position requires current enrollment in a school or education program in which the individual is working towards a Bachelor’s in Computer Science or related technical field
+    - Obtain Bachelor's in Computer Science or related technical field by June 2029
+    - Ability to demonstrate an understanding of computer science fundamentals, including data structures and algorithms.
+    - Familiarity using AI as a learning, productivity, and engineering tool, and as an iterative coding partner, to accelerate engineering work while exercising strong judgment around accuracy, security, and when to ask for help
+    - Experience with one or more programming languages such as Python, Java, JavaScript/TypeScript, Go, or C++, and familiarity with relevant frameworks, tools, or technologies such as React or similar. Technical requirements vary by team.
+    - Non-academic coding experience (i.e. hackathons, code challenges, personal projects, GitHub, Open Source, volunteer coding experience, conference participation, etc.)
+    - A curious nature with a desire to tackle and solve complex problem
+
+    This job posting is for an open vacancy. Please note that the company utilizes artificial intelligence to screen applicants for the positions.
+
+    In-Office Requirement Statement:
+
+    - This onsite internship will be based in our Toronto office requiring a few days in office. Our program will run in a full-time capacity during typical business hours between Monday-Friday.
+    - This role will need to be in the office for in-person collaboration 2-3 weekdays per week and therefore needs to be within a commutable distance of Toronto.
+
+    Relocation Statement:
+
+    - This position may be eligible for relocation assistance. Visit our PinFlex page to learn more about our working model.
+    - Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    Canada based applicants only
+
+    The minimum and maximum salary for this position is CA$6000 - CA$7500 monthly.
+
+    #LI-HYBRID
+
+    #LI-AG4
+
+    Our Commitment to Inclusion:
+
+    [... description truncated]
+- id: greenhouse:pinterest:8138080
+  source: greenhouse
+  company: Pinterest
+  title: Machine Learning Intern 2027 (Toronto)
+  location_raw: Toronto, ON, CA
+  department: University Engineering
+  url: https://www.pinterestcareers.com/jobs/?gh_jid=8138080
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: ml_ai
+    tech_stack: [hadoop, spark, java, c++, python, tensorflow, pytorch, mlflow]
+  label_notes: Master's/PhD ML intern. Year only ('2027'), no season -> terms empty. Hybrid -> remote_ok false.
+  description_text: |-
+    About Pinterest:
+
+    Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.
+
+    Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the flexibility to do your best work. Creating a career you love? It’s Possible.
+
+    At Pinterest, AI isn't just a feature, it's a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.
+
+    Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process here.
+
+    As a Machine Learning Intern at Pinterest, you’ll apply machine learning and AI to product and engineering challenges. You’ll work with engineering, product and data teams to prototype, evaluate and improve ML-powered features and discovery experiences. Throughout your internship, you’ll contribute to real projects, learn how large-scale ML systems are developed and build practical skills with guidance from experienced engineers.
+
+    What you’ll do:
+
+    - Own a scoped machine learning project from problem definition through experimentation, implementation and communication of results, with guidance from your manager and team
+    - Contribute to applied machine learning and AI research that informs Pinterest product experiences
+    - Collect, analyze and synthesize data to develop data-driven machine learning models
+    - Write clean, efficient and maintainable code, supported by appropriate documentation and testing
+    - Apply relevant machine learning techniques, including natural language processing or graph-based approaches, to modeling and ranking problems across discovery, ads and search
+    - Break down scoped technical problems, propose approaches and implement solutions with guidance from the team
+    - Deliver assigned project milestones, share progress and findings with teammates and seek guidance when needed
+    - Experience applying machine learning or AI concepts through research, coursework, projects or internships.
+    - Use AI to accelerate analysis and iteration while applying judgment and verification to ensure correctness and quality.
+
+    What we are looking for:
+
+    - Working towards a Master's or PhD degree in Computer Science, ML, NLP, Statistics, Information Sciences or related field
+    - Machine Learning (ranking, computer vision, NLP, content recommendations, embedding, information retrieval etc)
+    - Experience with big data technologies (e.g., Hadoop/Spark) and scalable realtime systems that process stream data
+    - Proficiency in at least one systems language (Java, C++, Python) or one ML framework (Tensorflow, Pytorch, MLFlow)
+    - Experience in research and in solving analytical problems
+    - Strong communicator and team player with the ability to find solutions for open-ended problems
+
+    This job posting is for an open vacancy. Please note that the company utilizes artificial intelligence to screen applicants for the positions.
+
+    In-Office Requirement Statement:
+
+    - This onsite internship will be based in our Toronto office requiring a few days in office. Our program will run in a full-time capacity during typical business hours between Monday-Friday.
+    - This role will need to be in the office for in-person collaboration 2-3 weekdays per week and therefore needs to be within a commutable distance of Toronto.
+
+    Relocation Statement:
+
+    - This position may be eligible for relocation assistance. Visit our PinFlex page to learn more about our working model.
+    - Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    Canada based applicants only
+
+    The minimum and maximum salary for this position is CA$8000 - CA$8600 monthly.
+
+    #LI-HYBRID
+
+    #LI-AG4
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    Canada based applicants only
+
+    $8,000—$8,600 CAD
+
+    Our Commitment to Inclusion:
+
+    [... description truncated]
+- id: greenhouse:pinterest:7838577
+  source: greenhouse
+  company: Pinterest
+  title: Software Engineer Intern 2027 (USA)
+  location_raw: San Francisco, CA, US; Remote, US
+  department: University Engineering
+  url: https://www.pinterestcareers.com/jobs/?gh_jid=7838577
+  expected:
+    is_internship: true
+    terms: [Summer 2027]
+    locations: ['San Francisco, CA', Remote (US)]
+    remote_ok: true
+    canada_eligible: false
+    role_type: swe
+    tech_stack: *id001
+  label_notes: US-only internship (US work authorization required). Two start options, May 17 and June 14 2027;
+    both start in Summer 2027 (the second ends Sep 3, which is not counted as a Fall term). Some interns are fully
+    remote -> remote_ok true.
+  description_text: |-
+    About Pinterest:
+
+    Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.
+
+    Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the flexibility to do your best work. Creating a career you love? It’s Possible.
+
+    At Pinterest, AI isn't just a feature, it's a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.
+
+    Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process here.
+
+    We’re looking for inquisitive, collaborative interns to join our engineering teams. Working closely with mentors and product, design, data, and backend engineers, you’ll learn how large-scale systems operate and use modern AI-assisted tools to help build new technologies, features, and tools. Expect real projects, supportive teammates, and plenty of opportunities to explore ideas that make a difference for our teams and Pinners.
+
+    What you’ll do:
+
+    - Demonstrate accountability and quality in your work while receiving support and guidance from your mentor, manager, and peers
+    - Execute scoped technical tasks end-to-end to help build the future of Pinterest
+    - Deliver code that is well-documented, tested, and operable
+    - Leverage AI tools in your daily engineering workflow to accelerate delivery—brainstorming approaches, writing and refining code, and producing clear documentation
+    - Communicate ideas and perspectives with candor as you grow professionally through learning and development opportunities
+    - Collaborate with your team and contribute to real projects that impact Pinterest
+    - Engage with leaders and employees across Pinterest and participate in a variety of optional company events
+
+    What we’re looking for:
+
+    - Currently enrolled in a degree or education program working toward a Bachelor’s or Master’s in Computer Science or a related technical field
+    - On track to graduate by June 2029
+    - Ability to demonstrate an understanding of computer science fundamentals, including data structures and algorithms
+    - Familiarity using AI as a learning, productivity, and engineering tool, and as an iterative coding partner, to accelerate engineering work while exercising strong judgment around accuracy, security, and when to ask for help
+    - Experience with one or more programming languages such as Python, Java, JavaScript/TypeScript, Go, or C++, and familiarity with relevant frameworks, tools, or technologies such as React or similar. Technical requirements vary by team.
+    - Non-academic coding experience (e.g., hackathons, code challenges, personal projects, GitHub, open source, volunteer coding experience, conference participation, etc.)
+    - Passion for Pinterest, comfort with ambiguity, and a growth mindset with a willingness to continuously learn
+
+    We offer 2 internship start dates:
+
+    - May 17, 2027 - August 6, 2027
+    - June 14, 2027 - September 3, 2027
+
+    In-Office Requirement Statement:
+
+    - We let the type of work you do guide the collaboration style. That means we're not always working in an office, but we continue to gather for key moments of collaboration and connection.
+    - For this role, some interns will work in a hybrid model (commutable distance to one of our offices, with in-person collaboration approximately 1–2 times per week), and some will work fully remote within approved locations. Specific location and work style (hybrid or remote) will be confirmed during the interview and offer process.
+    - Visit our PinFlex page to learn more about our working model.
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    US based applicants only
+
+    The minimum and maximum salary for this position is $8,250 - $11,000 monthly.
+
+    For this role, applicants must be currently legally authorized to work in the United States on a full-time basis. The Company complies with all applicable federal, state, and/or local equal employment opportunity and/or anti-discrimination laws.
+
+    This position is not eligible for immigration sponsorship.
+
+    #LI-HYBRID
+
+    #LI-FILS
+
+    Our Commitment to Inclusion:
+
+    [... description truncated]
+- id: greenhouse:pinterest:8140217
+  source: greenhouse
+  company: Pinterest
+  title: UX Quantitative Research Intern (USA)
+  location_raw: Remote, US
+  department: University Engineering
+  url: https://www.pinterestcareers.com/jobs/?gh_jid=8140217
+  expected:
+    is_internship: true
+    terms: [Summer 2027]
+    locations: [Remote (US)]
+    remote_ok: true
+    canada_eligible: false
+    role_type: design
+    tech_stack: [python, r, sql]
+  label_notes: 'US-only PhD internship. UX quantitative research: role_type design (UX); research or data are defensible.'
+  description_text: |-
+    About Pinterest:
+
+    Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.
+
+    Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the flexibility to do your best work. Creating a career you love? It’s Possible.
+
+    At Pinterest, AI isn't just a feature, it's a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.
+
+    Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process here.
+
+    We’re looking for inquisitive, collaborative UX Quantitative Research interns to bring statistical rigor to product decisions. Partnering with mentors across product, design, data, and engineering, you’ll craft surveys, model attitudes alongside usage data, and translate complex findings into compelling narratives for our teams. Expect real projects, supportive teammates, and opportunities to shape Pinterest experiences that are impactful, inclusive, and meaningful for our Pinners.
+
+    What you’ll do:
+
+    - Influence and evolve our product roadmap to help us fulfill our mission - to bring everyone the inspiration to create a life they love - using data and exploratory analysis to understand user behavior and trends, and identify opportunities for product innovation.
+    - Use surveys to gather insights about Pinner, Merchant, Creator, or Advertiser sentiments and preferences using survey methodologies and statistical/modeling based approaches.
+    - Explore the intersection of user attitudes and behaviors by combining surveys and log analysis
+    - Work cross-functionally to build and communicate key insights.
+    - Collaborate closely with product managers, engineers, designers, and researchers to help build the next experiences on Pinterest.
+
+    What we’re looking for:
+
+    - This position requires current enrollment in a school or education program in which the individual is working towards a PhD in statistics, psychology, sociology, applied sciences, computer science or related field
+    - Obtain PhD in statistics, psychology, sociology, applied sciences, computer science or related field by June 2027
+    - Currently pursuing a PhD in statistics, psychology, sociology, applied sciences, computer science or related field.
+    - Experience with survey methodology, including experience developing surveys and analyzing survey data
+    - Demonstrated experience in descriptive, inferential, and multivariate statistics, and experimental design.
+    - Experience using Python, R, or SQL.
+    - Excellent communication skills and the ability to tell a complete narrative using data.
+    - Ability to connect data analysis to real business problems, in order to impact business performance.
+
+    We offer 2 internship start dates:
+
+    - May 17, 2027 - August 6, 2027
+    - June 14, 2027 - September 3, 2027
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    US based applicants only
+
+    The minimum and maximum salary for this position is $11,000 monthly.
+
+    For this role, applicants must be currently legally authorized to work in the United States on a full-time basis. The Company complies with all applicable federal, state, and/or local equal employment opportunity and/or anti-discrimination laws.
+
+    This position is not eligible for immigration sponsorship.
+
+    #LI-FILS
+
+    Our Commitment to Inclusion:
+
+    Pinterest is an equal opportunity employer and makes employment decisions on the basis of merit. We want to have the best qualified people in every job. All qualified applicants will receive consideration for employment without regard to race, color, ancestry, national origin, religion or religious creed, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, age, marital status, status as a protected veteran, physical or mental disability, medical condition, genetic information or characteristics (or those of a family member) or any other consideration made unlawful by applicable federal, state or local laws. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. If you require a medical or religious accommodation during the job application process, please complete this form for support.
+
+    By submitting this application, I certify that all information submitted in my application and throughout the hiring process is true, accurate, and complete to the best of my knowledge. I understand that any false statement, omission, or misrepresentation may disqualify me from employment consideration or result in termination if discovered after hire.
+- id: greenhouse:stripe:8130805
+  source: greenhouse
+  company: Stripe
+  title: Software Engineer, Intern (Summer or Winter)
+  location_raw: Toronto
+  department: 5112 General University
+  url: https://stripe.com/jobs/search?gh_jid=8130805
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [ruby, java, javascript, go, scala]
+  label_notes: VAGUE TERM. 'Summer or Winter' with no year cannot be written as '<Season> <YYYY>' -> terms empty.
+    Remote not mentioned -> false.
+  description_text: |-
+    Who we are
+
+    About Stripe
+
+    Stripe is a technology company focused on improving the conditions for economic growth and prosperity. We build programmable financial infrastructure, rethinking from first principles how financial services should work, to make it easier and cheaper for any business to start and scale. More than 10 million businesses build on Stripe, spanning the economic frontier—from solo founders to established enterprises—united by a practical focus on growth. The most ambitious companies in the world use Stripe as core infrastructure to grow faster. They process trillions of dollars a year on Stripe, equivalent to around 1.6% of global GDP. While economic growth makes everyone better off, open markets also enable greater variety. When any business can easily serve a global customer base, the quality and diversity of products in the world increase, and craft and creativity are unleashed into the smallest niches. Our own growth is wholly contingent on the success of the businesses building on Stripe. We therefore invest back into our technology at an unusual rate. We make upgrades to our products every single day to deliver compounding gains to our customers. We maintain some of the most reliable APIs on the internet. We build entirely new pieces of financial infrastructure to enable new ideas. And our significant advances in risk and fraud infrastructure over many years are making the internet economy safer and more accessible.
+
+    Though people at Stripe don’t tend to take themselves seriously, Stripe is a fairly serious place: our customers are depending on us for their livelihoods. We admire ambition, intensity, curiosity, humility, and rigor. The most effective people become knowledgeable about many domains besides their own. Any company is an applied exercise in understanding some aspect of society or the market. In working with so many (especially the new and innovative ones), we think that Stripe is one of the very best places to learn about how the world works.
+
+    What you’ll do
+
+    As an intern at Stripe you’ll work on projects across our stack that directly impact the way millions of businesses operate. You’ll own problems end to end with the support of your manager and teammates. It’s an opportunity to work alongside some of the most creative and technically rigorous engineers in the industry and learn how to ship high-quality work at scale. By contributing to Stripe’s codebase you’ll work across domains that give you insight into how the global economy works. Recent intern projects include expanding Stripe’s Payments Foundation Model capabilities to improve generalized anomaly detection, building more approachable fraud controls, creating safer payouts, and developing user-facing solutions that prevent costly pricing mistakes and make merchant checkout setup easier.
+
+    Our internship program is competitive and the expectations are high.
+
+    Responsibilities
+
+    - Operate as a real member of the team you join; engage in team discussions, decisions, and the technical design process.
+    - Write software that will be used in production, and has meaningful impact to Stripe’s business and users.
+    - Give and receive technical feedback through code reviews or design discussions
+    - Collaborate with other engineers and cross-functional stakeholders to proactively seek and incorporate feedback.
+    - Learn quickly by asking great questions, working with your intern manager and teammates effectively, communicating the status of your work clearly, and building with the latest AI tooling.
+
+    Who you are
+
+    - Ambitious builder: You’re energized by building solutions without clear precedent and solving problems with far-reaching consequences. Successful Stripes are deeply curious, and prefer the joy of discovery to the comfort of certainty.
+    - Rigorous thinker: You appreciate that things worth doing are rarely simple. You enjoy working on problems that have never been tackled before.
+    - Adaptable problem solver: You adapt quickly and treat obstacles as opportunities. At Stripe we embrace kindness while encouraging Stripes to take measured risks and act boldly, even in the absence of consensus.
+
+    Minimum requirements
+
+    - A strong fundamental understanding of computer science through pursuit of a Bachelor’s or Master’s degree in computer science, math, or a related discipline.
+    - Experience and familiarity with programming, either through side projects or classwork. We work mostly in Ruby, Java, Javascript, Go, and Scala. We believe new programming languages can be learned if the fundamentals and general knowledge are present.
+    - Experience from previous internships or other multi-person projects, including open source contributions, that demonstrate evaluating and receiving feedback from mentors, peers, and stakeholders.
+    - Ability to learn unfamiliar systems and form an understanding of those systems, through independent research and working with a mentor or subject matter experts.
+    - Ability to leverage AI tools to accelerate development while applying rigorous critical thinking and professional judgement to review, refine, and validate all outputs.
+
+    Preferred qualifications
+
+    - At least 1 year of university education, or equivalent work experience.
+    - One or more areas of specialized knowledge (frontend, backend, infrastructure or other technologies) balanced with general skills and knowledge.
+    - Experience writing high quality pull requests, with good test coverage, and working knowledge to complete projects with minimal defects.
+    - Familiarity with navigating and managing your work in new code bases, with multiple languages.
+    - Clear written communication skills, with the ability to write clearly to explain your work to stakeholders, team members, and other Stripes.
+- id: greenhouse:stripe:8194287
+  source: greenhouse
+  company: Stripe
+  title: Data Analyst, Intern
+  location_raw: Toronto
+  department: 5112 General University
+  url: https://stripe.com/jobs/search?gh_jid=8194287
+  expected:
+    is_internship: true
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: data
+    tech_stack: [sql]
+  label_notes: The December 2027 / 2028 dates are graduation dates, not work terms -> terms empty.
+  description_text: |-
+    Who we are
+
+    About Stripe
+
+    Stripe is a technology company focused on improving the conditions for economic growth and prosperity. We build programmable financial infrastructure, rethinking from first principles how financial services should work, to make it easier and cheaper for any business to start and scale. More than 10 million businesses build on Stripe, spanning the economic frontier—from solo founders to established enterprises—united by a practical focus on growth. The most ambitious companies in the world use Stripe as core infrastructure to grow faster. They process trillions of dollars a year on Stripe, equivalent to around 1.6% of global GDP. While economic growth makes everyone better off, open markets also enable greater variety. When any business can easily serve a global customer base, the quality and diversity of products in the world increase, and craft and creativity are unleashed into the smallest niches. Our own growth is wholly contingent on the success of the businesses building on Stripe. We therefore invest back into our technology at an unusual rate. We make upgrades to our products every single day to deliver compounding gains to our customers. We maintain some of the most reliable APIs on the internet. We build entirely new pieces of financial infrastructure to enable new ideas. And our significant advances in risk and fraud infrastructure over many years are making the internet economy safer and more accessible.
+
+    Though people at Stripe don’t tend to take themselves seriously, Stripe is a fairly serious place: our customers are depending on us for their livelihoods. We admire ambition, intensity, curiosity, humility, and rigor. The most effective people become knowledgeable about many domains besides their own. Any company is an applied exercise in understanding some aspect of society or the market. In working with so many (especially the new and innovative ones), we think that Stripe is one of the very best places to learn about how the world works.
+
+    About the team
+
+    Data Science at Stripe is a vibrant community where data analysts and data scientists learn and grow together. You'll work with some of the most fundamental data at Stripe, and use that data to help drive company-wide initiatives. We have a variety of Data Analytics roles and teams across Stripe and will seek to align you to the most relevant team based on your background.
+
+    What you’ll do
+
+    As an intern at Stripe you’ll work on projects across our stack that directly impact the way millions of businesses operate. You’ll own problems end to end with the support of your manager and teammates. It’s an opportunity to work alongside some of the most creative and technically rigorous data analysts and scientists in the industry. You'll partner deeply with teams across Stripe to ensure that our users, our products, and our business have the models, data products, and insights needed to make decisions and grow responsibly. You'll work closely with partners to extract insights from the rich and complex data at Stripe. You'll build metrics, scalable data pipelines, dashboards, and reports to inform and run the business. You'll deliver actionable business recommendations through analyses and data storytelling.
+
+    Our internship program is competitive and the expectations are high.
+
+    Responsibilities
+
+    - Analyze data and running experiments to drive impact
+    - Ensure that our users, our products, and our business have the models, data products, and insights needed to make decisions and grow responsibly
+    - Create metrics, reports, and dashboards to inform and run the business
+    - Extend Stripe’s metrics semantic layer
+    - Build new data assets and improve existing data assets to support decision-making, products, and business processes
+    - Assess the impact of decisions, product launches, and product improvements using business analytics and A/B testing
+    - Learn quickly by asking great questions, finding how to work with your mentor and teammates effectively, and communicating the status of your work clearly
+    - Present your work to the Data Science team, partner teams, and fellow interns
+
+    Who you are
+
+    - Ambitious builder: You’re energized by building solutions without clear precedent and solving problems with far-reaching consequences. Successful Stripes are deeply curious, and prefer the joy of discovery to the comfort of certainty.
+    - Rigorous thinker: You appreciate that things worth doing are rarely simple. You enjoy working on problems that have never been tackled before.
+    - Adaptable problem solver: You adapt quickly and treat obstacles as opportunities. At Stripe we embrace kindness while encouraging Stripes to take measured risks and act boldly, even in the absence of consensus.
+
+    Minimum requirements
+
+    - Enrolled in a quantitative Bachelor’s or Master's degree program (e.g. Data Analytics, Statistics, Economics, Mathematics, etc.) with the expectation of graduating in December 2027 or spring/summer 2028
+    - Experience with SQL
+    - Proficiency with AI tools to accelerate model development, analysis, and coding
+    - Experience communicating and collaborating with multidisciplinary stakeholders in a team environment
+
+    Preferred qualifications
+
+    - Experience writing and debugging data pipelines
+    - Demonstrated ability to evaluate and receive feedback from mentors, peers, and stakeholders via experience from previous internships or other multi-person projects
+    - Ability to learn new systems and form an understanding of those systems, through independent research and working with a mentor and subject matter experts
+- id: greenhouse:faire:8870975002
+  source: greenhouse
+  company: Faire
+  title: Applied AI/ML Scientist, Intern
+  location_raw: San Francisco, CA
+  department: Algorithms & Data
+  url: https://boards.greenhouse.io/faire/jobs/8870975002?gh_jid=8870975002
+  expected:
+    is_internship: true
+    terms: [Winter 2027]
+    locations: ['San Francisco, CA']
+    remote_ok: false
+    canada_eligible: false
+    role_type: ml_ai
+    tech_stack: [pytorch, python, sql]
+  label_notes: US-only (San Francisco) internship for Master's/PhD students or recent graduates. Winter 2027, 12-14
+    weeks from January 2027. Faire's Kitchener-Waterloo HQ is mentioned but is not this role's location.
+  description_text: |-
+    About Faire
+
+    Faire is a technology wholesale platform built on the belief that the future is local. Independent retailers around the globe collectively represent a multi-hundred-billion-dollar wholesale market that has historically been fragmented and offline. At Faire, we're using the power of tech, data, and machine learning to connect this thriving community of entrepreneurs across the globe. Picture your favorite boutique in town — we help them discover the best products from around the world to sell in their stores. With the right tools and insights, we believe that we can level the playing field so businesses can grow and local communities can thrive.
+
+    We’re looking for smart, resourceful and passionate people to join us as we power the shop local movement. If you believe in community, come join ours.
+
+    About this role
+
+    Our Applied AI/ML Science team builds and maintains the models that power the marketplace. That work includes the shipping and delivery estimates retailers rely on as they shop and check out: what it will cost to ship and when it will arrive, before the order has been packed. Within Applied Science, our Shipping and Fulfillment team builds the models behind those estimates, including models that learn to understand products from images and text. Better predictions give retailers confidence in what they're buying and, in turn, help brands sell more on Faire.
+
+    What you will be doing
+
+    You'll own a focused project in one of these areas:
+
+    - Predicting how an order will be packed: Before an order ships, we have to anticipate how it will be packed. You'll build models that learn from what each item is and how items combine in a cart.
+    - Recommending better ways to pack: How an order is packed shapes what it costs to ship. You'll develop models that understand items from images and text and learn from historical packing outcomes to recommend packing that reduces shipping cost and improves efficiency.
+    - Understanding products from a catalog: Listings often lack reliable weight, size and shape. You'll train multimodal deep learning models that infer these physical characteristics from images, text and other catalog signals.
+
+    Whichever project you take on, you will:
+
+    - Survey the literature and existing approaches to identify promising ideas
+    - Prototype and train models offline, benchmarking against our current methods
+    - Build out the strongest approach into a working implementation
+    - Work with Applied Scientists and ML Engineers to test it against live traffic
+    - Present findings and recommendations to the team
+
+    What it takes
+
+    - Currently enrolled in or recently graduated from a Master's or PhD program in Computer Science, Machine Learning, Statistics, Electrical Engineering, or a related technical field
+    - Hands-on experience building deep learning models (e.g., PyTorch), ideally with images, text, or both, including fine-tuning pre-trained models or working with embeddings
+    - Familiarity with gradient-boosted trees and other tabular ML methods
+    - Strong Python and SQL
+    - Ability to read research papers and turn promising ideas into working code
+    - Solid grounding in statistics and model evaluation, including benchmarking against strong baselines and estimating uncertainty
+    - Comfort working with noisy or incomplete real-world data
+    - A genuine enthusiasm for tackling ambiguous problems and learning new tools and techniques
+
+    Internship Details
+
+    This paid Winter 2027 internship runs for 12 to 14 weeks, beginning in January 2027, with flexible start dates available for qualified candidates. Extensions may be offered based on project needs and mutual agreement.
+
+    Pay rate
+
+    San Francisco: the pay rate for this role is $75 USD per hour.
+
+    Actual hourly pay will be determined based on permissible factors such as transferable skills, work experience, market demands, and primary work location. The pay range provided is subject to change and may be modified in the future.
+
+    Faire uses Artificial Intelligence (AI) to screen and select applicants for this position.
+
+    This job posting is for an existing vacancy.
+
+    #LI-DNI
+
+    Hybrid Faire employees currently go into the office 3 days per week on Tuesdays, Thursdays, and a third flex day of their choosing (Monday, Wednesday, or Friday). Additionally, hybrid in-office roles will have the flexibility to work remotely up to 4 weeks per year. Specific Workplace and Information Technology positions may require onsite attendance 5 days per week as will be indicated in the job posting.
+
+    Why you’ll love working at Faire
+
+    - Move fast: You'll own meaningful problems that serve customers around the globe with the agency to move fast and see your results clearly.
+    - Equipped to scale: We invest in what matters, including the latest enterprise AI tools, to help you work smarter and get more out of every day.
+    - Best in class: Our team is full of sharp, kind, and generous colleagues who care about their craft and about helping you grow in yours.
+    - Real rewards. Competitive pay, equity, and comprehensive benefits designed to support your life inside and outside of work.
+    - Belonging: We're intentional about building an environment where every Faire employee has equal access to opportunities, growth, and success.
+
+    Faire was founded in 2017 by a team of early product and engineering leads from Square. We’re backed by some of the top investors in retail and tech including: Y Combinator, Lightspeed Venture Partners, Forerunner Ventures, Khosla Ventures, Sequoia Capital, Founders Fund, and DST Global. We have headquarters in San Francisco and Kitchener-Waterloo, and a global employee presence across offices in Toronto, London, and New York. To learn more about Faire and our customers, you can read more on our blog.
+
+    [... description truncated]
+- id: greenhouse:stripe:8241260
+  source: greenhouse
+  company: Stripe
+  title: High School Internship, Software Engineering (Summer 2027)
+  location_raw: Seattle, San Francisco
+  department: 5112 General University
+  url: https://stripe.com/jobs/search?gh_jid=8241260
+  expected:
+    is_internship: true
+    terms: [Summer 2027]
+    locations: ['Seattle, WA', 'San Francisco, CA']
+    remote_ok: false
+    canada_eligible: false
+    role_type: swe
+    tech_stack: []
+  label_notes: 'AMBIGUOUS. A high-school internship: is_internship true by the field definition (a student/intern
+    program), even though a university student cannot apply. 12 weeks between May and August, in person in SF or
+    Seattle. The snapshot is cut before the requirements, so no technologies are named.'
+  description_text: |-
+    This role is intended for current high school students graduating in 2027 or later.
+
+    Who we are
+
+    About Stripe
+
+    Stripe is a technology company focused on improving the conditions for economic growth and prosperity. We build programmable financial infrastructure, rethinking from first principles how financial services should work, to make it easier and cheaper for any business to start and scale. More than 10 million businesses build on Stripe, spanning the economic frontier, from solo founders to established enterprises, united by a practical focus on growth. The most ambitious companies in the world use Stripe as core infrastructure to grow faster. They process trillions of dollars a year on Stripe, equivalent to around 1.6% of global GDP. While economic growth makes everyone better off, open markets also enable greater variety. When any business can easily serve a global customer base, the quality and diversity of products in the world increase, and craft and creativity are unleashed into the smallest niches.
+
+    Our own growth is wholly contingent on the success of the businesses building on Stripe. We therefore invest back into our technology at an unusual rate. We make upgrades to our products every single day to deliver compounding gains to our customers. We maintain some of the most reliable APIs on the internet. We build entirely new pieces of financial infrastructure to enable new ideas. And our significant advances in risk and fraud infrastructure over many years are making the internet economy safer and more accessible.
+
+    Though people at Stripe do not tend to take themselves seriously, Stripe is a fairly serious place: our customers are depending on us for their livelihoods. We admire ambition, intensity, curiosity, humility, and rigor. The most effective people become knowledgeable about many domains besides their own. Any company is an applied exercise in understanding some aspect of society or the market. In working with so many, especially the new and innovative ones, we think that Stripe is one of the very best places to learn about how the world works.
+
+    What you’ll do
+
+    This is a small, selective internship for exceptional high school students and recent graduates whose technical work already stands out well beyond what we typically see at this stage. We are not looking for potential or credentials alone. We are looking for students who can show, through what they have built, researched, or contributed, that they are ready to do substantive engineering work with a Stripe team.
+    You will spend 12 consecutive weeks between May and August working in person from Stripe’s San Francisco or Seattle office on a scoped engineering project. You will own a problem end to end with support from your manager and teammates, contribute to Stripe’s codebase, and learn how engineers build reliable systems used by millions of businesses. Recent Stripe intern projects include expanding Payments Foundation Model capabilities to improve generalized anomaly detection, building more approachable fraud controls, creating safer payouts, and developing user-facing solutions that prevent costly pricing mistakes and make merchant checkout setup easier.
+
+    You will work alongside Stripe’s collegiate interns and full-time employees. That means participating in the same team environment, learning how engineers at different stages approach technical decisions, and building relationships across the broader Stripe community.
+
+    This is not a trainee or classroom-based program. You will receive support from your manager and teammates, but you will be expected to contribute to your team’s work, learn quickly, communicate clearly, ask strong questions, and produce work that holds up under technical review.
+
+    As with Stripe’s collegiate internships, strong performance may lead to consideration for future opportunities at Stripe, including full-time employment for interns who meet the relevant eligibility and hiring requirements. Future opportunities are not guaranteed and will depend on individual performance and Stripe’s hiring needs.
+
+    Responsibilities
+
+    - Participate fully in the team you join, including team discussions, decisions, and the technical design process.
+    - Write, test, and document software intended for production use by Stripe teams and users.
+    - Give and receive technical feedback through code reviews and design discussions.
+    - Collaborate with engineers and cross-functional partners to seek and incorporate feedback.
+    - Learn unfamiliar systems through independent research and close work with your manager, mentor, teammates, and subject matter experts.
+    - Communicate the status of your work clearly, including progress, risks, open questions, and where you need help.
+    - Use current AI development tools thoughtfully while applying rigorous judgment to review, refine, test, and validate outputs.
+
+    What We Look For
+
+    We don't have a test score threshold. We look for people who have already started acting like the engineers and operators we most admire.
+
+    - Ambitious builder: You are energized by building solutions without a clear precedent and working through difficult technical problems. You can point to technical work that shows unusual initiative, depth, or originality for someone at your stage.
+    - Rigorous thinker: You care about whether your work is correct, not just whether it runs. You test your assumptions, examine edge cases, and can explain the choices you made.
+    - Adaptable problem solver: You learn quickly, respond well to feedback, and keep making progress when the path is unclear.
+    - Collaborative teammate: You communicate clearly, treat others with kindness, and know when to work independently and when to ask for help.
+
+    Minimum requirements
+
+    [... description truncated]
+- id: greenhouse:stripe:8157838
+  source: greenhouse
+  company: Stripe
+  title: Software Engineer, New Grad
+  location_raw: Toronto
+  department: 5112 General University
+  url: https://stripe.com/jobs/search?gh_jid=8157838
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: &id002 [java, ruby, javascript, scala, go]
+  label_notes: 'NEW GRAD. Full-time role for graduates (degree by summer 2027): not an internship, and the graduation
+    date is not a term.'
+  description_text: |-
+    Who we are
+
+    About Stripe
+
+    Stripe is a technology company focused on improving the conditions for economic growth and prosperity. We build programmable financial infrastructure, rethinking from first principles how financial services should work, to make it easier and cheaper for any business to start and scale. More than 10 million businesses build on Stripe, spanning the economic frontier—from solo founders to established enterprises—united by a practical focus on growth. The most ambitious companies in the world use Stripe as core infrastructure to grow faster. They process trillions of dollars a year on Stripe, equivalent to around 1.6% of global GDP. While economic growth makes everyone better off, open markets also enable greater variety. When any business can easily serve a global customer base, the quality and diversity of products in the world increase, and craft and creativity are unleashed into the smallest niches. Our own growth is wholly contingent on the success of the businesses building on Stripe. We therefore invest back into our technology at an unusual rate. We make upgrades to our products every single day to deliver compounding gains to our customers. We maintain some of the most reliable APIs on the internet. We build entirely new pieces of financial infrastructure to enable new ideas. And our significant advances in risk and fraud infrastructure over many years are making the internet economy safer and more accessible.
+
+    Though people at Stripe don’t tend to take themselves seriously, Stripe is a fairly serious place: our customers are depending on us for their livelihoods. We admire ambition, intensity, curiosity, humility, and rigor. The most effective people become knowledgeable about many domains besides their own. Any company is an applied exercise in understanding some aspect of society or the market. In working with so many (especially the new and innovative ones), we think that Stripe is one of the very best places to learn about how the world works.
+
+    Your role
+
+    Stripe is large enough that individual products and projects can be rapidly deployed to a meaningful fraction of the world’s businesses, but small enough that individual agency still has outsized impact. Small teams can impact how millions of businesses grow. Right now the global economy is replatforming around AI, creating new opportunities for growth. We’re at the center of this, and we think the best work is still in front of us.
+
+    To meet this moment, we’re looking for people who move with urgency, like hard problems, and want their work to matter at a time of great change. If that’s you, there’s no better place to build your career.
+
+    Who you are
+
+    - Ambitious builder: You’re energized by building solutions without clear precedent and solving problems with far-reaching consequences. Successful Stripes are deeply curious, and prefer the joy of discovery to the comfort of certainty.
+    - Rigorous thinker: You appreciate that things worth doing are rarely simple. You enjoy working on problems that have never been tackled before.
+    - Adaptable problem solver: You adapt quickly and treat obstacles as opportunities. At Stripe we embrace kindness while encouraging Stripes to take measured risks and act boldly, even in the absence of consensus.
+
+    Minimum requirements
+
+    - A Bachelor’s or Master’s degree in computer science or a directly related field, obtained by summer 2027, or equivalent work experience; New grad candidates should have no more than 18 months of professional experience (excluding internship experience).
+    - Experience and familiarity with programming, either through side projects or classwork. We work mostly in Java, Ruby, JavaScript, Scala, and Go. We believe new programming languages can be learned if the fundamentals and general knowledge are present.
+    - Experience from either previous internships or working collaboratively on multi-person coding projects (in a university or professional setting).
+    - Ability to learn unfamiliar systems and form an understanding of those systems, through independent research and working with a mentor or subject matter experts.
+    - Clear written communication skills, with the ability to explain your work to stakeholders, team members, and other Stripes.
+    - Ability to leverage AI tools to accelerate development while applying rigorous critical thinking and professional judgement to review, refine, and validate all outputs.
+
+    Preferred qualifications
+
+    - One or more areas of specialized knowledge (frontend, backend, infrastructure or other technologies) balanced with general skills and knowledge.
+    - Experience in code review practices, and an understanding of how to safely update production systems.
+    - Familiarity with navigating and managing work in large code bases.
+    - Experience leading small projects independently, and contributing to larger projects alongside peers.
+    - Ability to operate with high agency in navigating complex technical obstacles independently, knowing precisely when to unblock oneself and when to ask for help.
+- id: greenhouse:stripe:8212517
+  source: greenhouse
+  company: Stripe
+  title: Software Engineer, Early Career — Immediate Start
+  location_raw: Toronto
+  department: 5112 General University
+  url: https://stripe.com/jobs/search?gh_jid=8212517
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: *id002
+  label_notes: 'NEW GRAD / EARLY CAREER. Full-time start before December 1 2026: a start date for a permanent role,
+    not a work term, so terms empty (a model may say Fall 2026).'
+  description_text: |-
+    This role is for applicants actively looking to start before December 1, 2026.
+
+    Who we are
+
+    About Stripe
+
+    Stripe is a technology company focused on improving the conditions for economic growth and prosperity. We build programmable financial infrastructure, rethinking from first principles how financial services should work, to make it easier and cheaper for any business to start and scale. More than 10 million businesses build on Stripe, spanning the economic frontier—from solo founders to established enterprises—united by a practical focus on growth. The most ambitious companies in the world use Stripe as core infrastructure to grow faster. They process trillions of dollars a year on Stripe, equivalent to around 1.6% of global GDP. While economic growth makes everyone better off, open markets also enable greater variety. When any business can easily serve a global customer base, the quality and diversity of products in the world increase, and craft and creativity are unleashed into the smallest niches. Our own growth is wholly contingent on the success of the businesses building on Stripe. We therefore invest back into our technology at an unusual rate. We make upgrades to our products every single day to deliver compounding gains to our customers. We maintain some of the most reliable APIs on the internet. We build entirely new pieces of financial infrastructure to enable new ideas. And our significant advances in risk and fraud infrastructure over many years are making the internet economy safer and more accessible.
+
+    Though people at Stripe don’t tend to take themselves seriously, Stripe is a fairly serious place: our customers are depending on us for their livelihoods. We admire ambition, intensity, curiosity, humility, and rigor. The most effective people become knowledgeable about many domains besides their own. Any company is an applied exercise in understanding some aspect of society or the market. In working with so many (especially the new and innovative ones), we think that Stripe is one of the very best places to learn about how the world works.
+
+    Your role
+
+    Stripe is large enough that individual products and projects can be rapidly deployed to a meaningful fraction of the world’s businesses, but small enough that individual agency still has outsized impact. Small teams can impact how millions of businesses grow. Right now the global economy is replatforming around AI, creating new opportunities for growth. We’re at the center of this, and we think the best work is still in front of us.
+
+    To meet this moment, we’re looking for people who move with urgency, like hard problems, and want their work to matter at a time of great change. If that’s you, there’s no better place to build your career.
+
+    Who you are
+
+    - Ambitious builder: You’re energized by building solutions without clear precedent and solving problems with far-reaching consequences. Successful Stripes are deeply curious, and prefer the joy of discovery to the comfort of certainty.
+    - Rigorous thinker: You appreciate that things worth doing are rarely simple. You enjoy working on problems that have never been tackled before.
+    - Adaptable problem solver: You adapt quickly and treat obstacles as opportunities. At Stripe we embrace kindness while encouraging Stripes to take measured risks and act boldly, even in the absence of consensus.
+
+    Minimum requirements
+
+    - Must be available to start full-time before December 1, 2026
+    - A Bachelor’s or Master’s degree in computer science or a directly related field, obtained by summer 2026, or equivalent work experience
+    - New grad candidates should have no more than 18 months of professional experience (excluding internship experience)
+    - Experience and familiarity with programming, either through side projects or classwork. We work mostly in Java, Ruby, JavaScript, Scala, and Go. We believe new programming languages can be learned if the fundamentals and general knowledge are present.
+    - Experience from either previous internships or working collaboratively on multi-person coding projects (in a university or professional setting).
+    - Ability to learn unfamiliar systems and form an understanding of those systems, through independent research and working with a mentor or subject matter experts.
+    - Clear written communication skills, with the ability to explain your work to stakeholders, team members, and other Stripes.
+    - Ability to leverage AI tools to accelerate development while applying rigorous critical thinking and professional judgement to review, refine, and validate all outputs.
+
+    Preferred qualifications
+
+    - One or more areas of specialized knowledge (frontend, backend, infrastructure or other technologies) balanced with general skills and knowledge.
+    - Experience in code review practices, and an understanding of how to safely update production systems.
+    - Familiarity with navigating and managing work in large code bases.
+    - Experience leading small projects independently, and contributing to larger projects alongside peers.
+    - Ability to operate with high agency in navigating complex technical obstacles independently, knowing precisely when to unblock oneself and when to ask for help.
+- id: greenhouse:pinterest:7838591
+  source: greenhouse
+  company: Pinterest
+  title: University Grad Software Engineer 2027 (USA)
+  location_raw: San Francisco, CA, US; Remote, US
+  department: University
+  url: https://www.pinterestcareers.com/jobs/?gh_jid=7838591
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['San Francisco, CA', Remote (US)]
+    remote_ok: true
+    canada_eligible: false
+    role_type: swe
+    tech_stack: *id001
+  label_notes: NEW GRAD. 'University Grad' full-time role (US applicants only); the Jan-Sep 2027 start window is
+    not a work term.
+  description_text: |-
+    About Pinterest:
+
+    Millions of people around the world come to our platform to find creative ideas, dream about new possibilities and plan for memories that will last a lifetime. At Pinterest, we’re on a mission to bring everyone the inspiration to create a life they love, and that starts with the people behind the product.
+
+    Discover a career where you ignite innovation for millions, transform passion into growth opportunities, celebrate each other’s unique experiences and embrace the flexibility to do your best work. Creating a career you love? It’s Possible.
+
+    At Pinterest, AI isn't just a feature, it's a powerful partner that augments our creativity and amplifies our impact, and we’re looking for candidates who are excited to be a part of that. To get a complete picture of your experience and abilities, we’ll explore your foundational skills and how you collaborate with AI.
+
+    Through our interview process, what matters most is that you can always explain your approach, showing us not just what you know, but how you think. You can read more about our AI interview philosophy and how we use AI in our recruiting process here.
+
+    We’re looking for inquisitive, collaborative university grads to join our engineering teams. Working closely with mentors and product, design, data, and back‑end engineers, you’ll learn how large‑scale systems operate and play a meaningful role in building new technologies, features, and tools. Expect real projects, supportive teammates, and plenty of opportunities to explore ideas that make a difference for our teams and Pinners.
+
+    What you’ll do:
+
+    - Deliver code that is well-documented, tested, and operable
+    - Execute scoped technical tasks end-to-end to help build the future of Pinterest
+    - Take ownership of the completion, quality, and maintainability of your tasks and projects
+    - Leverage AI tools in your daily engineering workflow to accelerate delivery—brainstorming approaches, writing and refining code, and producing clear documentation
+    - Collaborate with teammates and cross-functional partners to build products, systems, and tools that support Pinterest
+    - Proactively communicate ideas and perspectives with candor, and continue growing professionally through feedback, learning, and development opportunities
+    - Contribute to engineering work across backend, full stack, mobile, web, and security domains, depending on team
+
+    What we're looking for:
+
+    - Bachelor’s or Master’s degree in Computer Science or a related technical field, expected by June 2027
+    - Must be available to start full-time between January 2027 and September 2027
+    - At least one year of programming experience through internships, research, coursework, teaching, personal projects, open source, or hackathons
+    - Familiarity using AI as a learning, productivity, and engineering tool, and as an iterative coding partner, to accelerate engineering work while exercising strong judgment around accuracy, security, and when to ask for help
+    - Strong foundation in computer science fundamentals, including data structures, algorithms, and software design
+    - Experience with one or more programming languages such as Python, Java, JavaScript/TypeScript, Go, or C++, and familiarity with relevant frameworks, tools, or technologies such as React or similar. Technical requirements vary by team.
+    - Previous software engineering internship experience strongly preferred
+    - Strong communication skills and product sense
+    - Passion for Pinterest, comfort with ambiguity, and a growth mindset with a willingness to continuously learn
+
+    In-Office Requirement Statement:
+
+    - We let the type of work you do guide the collaboration style. That means we're not always working in an office, but we continue to gather for key moments of collaboration and connection.
+    - For this role, some employees will work in a hybrid model (commutable distance to one of our offices, with in-person collaboration approximately 1–2 times per week), and some will work fully remote within approved locations. Specific location and work style (hybrid or remote) will be confirmed during the interview and offer process.
+    - Visit our PinFlex page to learn more about our working model.
+
+    #LI-HYBRID
+
+    #LI-FILS
+
+    At Pinterest we believe the workplace should be equitable, inclusive, and inspiring for every employee. In an effort to provide greater transparency, we are sharing the base salary range for this position. The position is also eligible for equity. Final salary is based on a number of factors including location, travel, relevant prior experience, or particular skills and expertise.
+
+    Information regarding the culture at Pinterest and benefits available for this position can be found here.
+
+    US based applicants only
+
+    $129,022—$174,283 USD
+
+    Our Commitment to Inclusion:
+
+    Pinterest is an equal opportunity employer and makes employment decisions on the basis of merit. We want to have the best qualified people in every job. All qualified applicants will receive consideration for employment without regard to race, color, ancestry, national origin, religion or religious creed, sex (including pregnancy, childbirth, or related medical conditions), sexual orientation, gender, gender identity, gender expression, age, marital status, status as a protected veteran, physical or mental disability, medical condition, genetic information or characteristics (or those of a family member) or any other consideration made unlawful by applicable federal, state or local laws. We also consider qualified applicants regardless of criminal histories, consistent with legal requirements. If you require a medical or religious accommodation during the job application process, please complete this form for support.
+
+    [... description truncated]
+- id: greenhouse:tenstorrent:5260226007
+  source: greenhouse
+  company: Tenstorrent
+  title: Low-Level Software Engineer, LLK
+  location_raw: Toronto, Ontario, Canada
+  department: 'AI SW: LLK'
+  url: https://job-boards.greenhouse.io/tenstorrent/jobs/5260226007
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['Toronto, ON']
+    remote_ok: false
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [c, c++]
+  label_notes: 'Hybrid in Toronto. Low-level kernel software for AI chips: swe (hardware is defensible). ''C/C++''
+    splits into c and c++.'
+  description_text: |-
+    Tenstorrent is leading the industry on cutting-edge AI technology, revolutionizing performance expectations, ease of use, and cost efficiency. With AI redefining the computing paradigm, solutions must evolve to unify innovations in software models, compilers, platforms, networking, and semiconductors. Our diverse team of technologists have developed a high performance RISC-V CPU from scratch, and share a passion for AI and a deep desire to build the best AI platform possible. We value collaboration, curiosity, and a commitment to solving hard problems. We are growing our team and looking for contributors of all seniorities.
+
+    As a Low-Level Software Engineer on Tenstorrent’s Low-Level Kernel (LLK) team, you’ll work at the intersection of software and AI hardware to build the primitives that power our workloads.
+
+    LLKs sit directly on top of the ISA of Tenstorrent’s AI hardware and form the foundation for the software stack above them. You’ll tackle challenging problems in low-level programming, hardware-aware optimization, and performance engineering, with the opportunity to influence how our hardware is programmed and how efficiently AI workloads run. Improvements at this layer can have an outsized impact across the entire stack.
+
+    You’ll take ownership of complex technical problems from design through implementation and optimization, while working closely with engineers across LLK, hardware, runtime, and operations.
+
+    This role is hybrid, based out of Toronto, Canada.
+
+    We welcome candidates at various experience levels for this role. During the interview process, candidates will be assessed for the appropriate level, and offers will align with that level, which may differ from the one in this posting.
+
+    Who You Are
+
+    - Strong C/C++ engineer with significant experience building low-level, performance-critical software.
+    - Deep understanding of computer architecture and how software maps to hardware.
+    - Strong problem solver who can investigate complex performance and systems challenges and drive them to resolution.
+    - Comfortable working close to the hardware and making informed tradeoffs between performance, correctness, and maintainability.
+    - Effective technical collaborator who can work across software and hardware teams and influence technical decisions
+
+    What We Need
+
+    - Design and implement low-level kernels and software primitives that expose the capabilities of Tenstorrent AI hardware.
+    - Own complex performance optimization efforts, from profiling and identifying bottlenecks through implementation and validation.
+    - Develop software that enables efficient model bring-up and execution across Tenstorrent hardware.
+    - Partner with LLK subteams across performance, tools, compute, and architecture bring-up, as well as hardware and runtime teams.
+    - Drive improvements to the quality, performance, and capabilities of the low-level software stack.
+
+    What You Will Learn
+
+    - How to program and optimize software for custom AI hardware at the lowest levels of the stack.
+    - How hardware architecture, instruction sets, and low-level kernels come together to enable AI workloads.
+    - Advanced approaches to performance analysis, hardware-aware optimization, and debugging.
+    - How low-level software decisions influence performance across the broader AI software stack.
+    - How to solve complex problems spanning hardware, kernels, runtime, and higher-level software.
+
+    Compensation for all engineers at Tenstorrent ranges from $100k - $500k including base and variable compensation targets. Experience, skills, education, background and location all impact the actual offer made.
+
+    Tenstorrent offers a highly competitive compensation package and benefits, and we are an equal opportunity employer.
+
+    This offer of employment is contingent upon the applicant being eligible to access U.S. export-controlled technology. Due to U.S. export laws, including those codified in the U.S. Export Administration Regulations (EAR), the Company is required to ensure compliance with these laws when transferring technology to nationals of certain countries (such as EAR Country Groups D:1, E1, and E2). These requirements apply to persons located in the U.S. and all countries outside the U.S. As the position offered will have direct and/or indirect access to information, systems, or technologies subject to these laws, the offer may be contingent upon your citizenship/permanent residency status or ability to obtain prior license approval from the U.S. Commerce Department or applicable federal agency. If employment is not possible due to U.S. export laws, any offer of employment will be rescinded.
+- id: greenhouse:d2l:260466
+  source: greenhouse
+  company: D2L
+  title: Software Developer
+  location_raw: Kitchener, Toronto, Winnipeg, Vancouver, Canada Remote
+  department: Product Development
+  url: https://www.d2l.com/careers/jobs/?job_id=260466&gh_jid=260466
+  expected:
+    is_internship: false
+    terms: []
+    locations: ['Kitchener, ON', 'Toronto, ON', 'Winnipeg, MB', 'Vancouver, BC', Remote (Canada)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [c++, c#, java]
+  label_notes: MULTI-LOCATION. The listing includes 'Canada Remote' while the text says D2L works hybrid (3 days
+    in office); labeled remote_ok true because a remote location is listed. Experience level unstated; not aimed
+    at students.
+  description_text: |-
+    D2L is a cloud company that is modernizing education and building the Future of Work. The old models of teaching and learning are in the midst of the largest transformation in history, and D2L is at the heart of that fundamental shift.
+
+    New models of teaching and learning enable a personalized, student-centric experience – and deliver improved retention, engagement, satisfaction, and results for learners of all ages – in schools, campuses, and companies.
+
+    D2L is disrupting the way the world learns, by providing the next generation learning environment and solutions to engage and inspire learners. And most importantly, by giving customers a platform that is easy, flexible, and smart. No other company provides a solution as robust and innovative as D2L.
+
+    D2L has had a singular mission for 25 years and is dedicated to that same mission in the years ahead: to transform the way the world learns – and by doing so, we will help improve human potential globally.
+
+    Every application we receive is personally reviewed by a member of our Talent Acquisition team - yes, a real person looks at your resume! While we use AI tools internally to streamline tasks like meeting notes, summaries, and administrative work, these tools never rank resumes, make hiring decisions, or influence candidate evaluations.
+
+    How will I make an Impact?
+
+    At D2L, we are looking for developers who will help us advance our goal of using technology to transform teaching and learning around the world. We need software developers to work on a wide range of technologies including, but not limited to: distributed systems, user interfaces, mobile and cloud computing. As a developer, you will help make dreams a reality.
+
+    We are looking for software developers who have a passion for technology and code. Beyond code, developers are expected to collaborate closely with others including technical product managers, designers and QA. Your ideas and perspectives are essential to making sure we are building the right things.
+
+    What you’ll bring to the role:
+
+    - Ability to analyze and decompose problems into potential technical solutions
+    - Experience with OO design and proficient coding skills (ie: C++, C# or Java)
+    - Strong understanding of Computer Science topics including: data structures, algorithms, databases, distributed systems
+    - Experience in software development, preferably in a technology focused company
+    - Acumen with Artificial Intelligence tools
+    - Bachelor’s degree in computer science, computer engineering or similar technical discipline
+
+    D2L operates in a hybrid work style, with expectation of 3 days per week in office.
+
+    This position is to fill an existing vacancy
+
+    The expected base salary range for a new hire in this role is listed below. The annualized base salary offered is determined by each candidate’s relevant knowledge, skills, education, training and experience. It is aligned to ensure both internal and external competitiveness using market data for the geographic location and industry. As part of the total compensation at D2L the role may be eligible for additional benefits including a Wellness Subsidy, Equity Grants, Variable Incentive, and more.
+
+    Base Salary Range
+
+    $70,000—$105,000 CAD
+
+    Don’t meet every single requirement? We strongly encourage you to still apply! At D2L, we are committed to creating a diverse and inclusive environment. We encourage your application even if you don't believe you meet every single qualification outlined, because we love to help our people grow and develop!
+
+    Why we're awesome:
+
+    At D2L, we are dedicated to providing you with the tools to do the best work of your life. While some of our perks and benefits may vary depending on location or employment type, we are proud to provide employees with the following through #LifeAtD2L:
+
+    - Impactful work transforming the way the world learns
+    - Flexible work arrangements
+    - Learning and Growth opportunities
+    - Tuition reimbursement of up to $4,000 CAD for continuing education through our SkillsWave Program
+    - 2 Paid Days off for SkillsWave-related activities like exams or final assignments
+    - Employee wellbeing (Access to mental health services, EFAP program, financial planning and more)
+    - Retirement planning
+    - 2 Paid Volunteer Days
+    - Competitive Benefits Package
+    - Home Internet Reimbursements
+    - Employee Referral Program
+    - Wellness Reimbursement
+    - Employee Recognition
+    - Social Events
+    - Dog Friendly Offices Spaces at our HQ in Kitchener, Winnipeg, Vancouver and Melbourne offices.
+- id: greenhouse:instacart:8188987
+  source: greenhouse
+  company: Instacart
+  title: Software Engineer II, - Ads
+  location_raw: Canada - Remote (ON, AB, BC, or NS Only)
+  department: Software Engineering
+  url: https://instacart.careers/job/?gh_jid=8188987
+  expected:
+    is_internship: false
+    terms: []
+    locations: [Remote (Canada)]
+    remote_ok: true
+    canada_eligible: true
+    role_type: swe
+    tech_stack: [go, ruby, python, kafka, aws, gcp]
+  label_notes: Remote in ON, AB, BC or NS only -> Remote (Canada). 'Software Engineer II' (3+ years).
+  description_text: |-
+    We're transforming the grocery industry
+
+    At Instacart, we invite the world to share love through food because we believe everyone should have access to the food they love and more time to enjoy it together. Where others see a simple need for grocery delivery, we see exciting complexity and endless opportunity to serve the varied needs of our community. We work to deliver an essential service that customers rely on to get their groceries and household goods, while also offering safe and flexible earnings opportunities to Instacart Personal Shoppers.
+
+    Instacart has become a lifeline for millions of people, and we’re building the team to help push our shopping cart forward. If you’re ready to do the best work of your life, come join our table.
+
+    Instacart is a Flex First team
+
+    There’s no one-size fits all approach to how we do our best work. Our employees have the flexibility to choose where they do their best work—whether it’s from home, an office, or your favorite coffee shop—while staying connected and building community through regular in-person events. Learn more about our flexible approach to where we work.
+
+    Overview
+
+    Carrot Ads is Instacart's publisher advertising platform and one of its fastest-growing businesses. We power ads for enterprise retail partners like Uber Eats, Hy-Vee, and Thrive Market on their own storefronts, spanning Storefront, Storefront Pro, and the Connect / Carrot Ads API. As the first vertical team inside a historically horizontal Ads org, our scope is unusually broad: we own the publisher customer end to end while building on top of shared serving, measurement, and quality systems.
+
+    Retail media is consolidating, and Instacart is positioned to win on cross-retailer reach. Our goal is to become the premier grocery ads ecosystem for partners and advertisers — and getting there means turning an early externalization into an enterprise-grade platform that the world's most sophisticated retailers trust with their own storefronts. That is the problem you will help solve.
+
+    As a Software Engineer II on Carrot Ads, you will independently build and ship features across the publisher-facing stack: the Connect / Carrot Ads API, publisher serving inputs, reporting, and the tooling partners use to run their ad businesses. You will write efficient, observable, well-tested code, own what you ship through production and on-call, and work as an away team into shared systems when a feature needs changes there. This is a high-visibility role inside one of Instacart's top growth areas, with real opportunity to own meaningful surfaces early in your career here.
+
+    About the Job
+
+    - Build and ship publisher-facing features end to end across Storefront, Storefront Pro, and API partners — including API endpoints, serving inputs, reporting views, and configuration tooling that partners depend on daily.
+    - Extend the Connect / Carrot Ads API with clear contracts, robust event handling and dead-letter recovery, integration tests, and self-serve documentation that makes partner onboarding faster and more reliable.
+    - Build the retailer control surface: relevance and quality-score inputs, reserve pricing, ad-load controls, and the trade-off signals retailers use to tune performance on their own sites.
+    - Strengthen reporting and data integrity across partner systems — including attribution, catalog and product-ID mapping, reconciliation, and automated health checks that keep partner data trustworthy.
+    - Raise reliability by helping define and meet partner SLAs, improving observability, reducing incident frequency and time to recovery, and contributing to a unified partner-health monitoring layer.
+    - Debug partner-facing serving and reporting issues, tracing root causes across shared serving, measurement, and quality systems.
+    - Collaborate across Product, Enterprise Solutions, and the horizontal Ads teams — including Serving, Measurement, Ads Quality, and Ads Manager — to land work that spans multiple stacks.
+    - Use AI-assisted developer tools to move faster without lowering the bar on quality or security.
+
+    About You
+
+    You work well in ambiguity, like owning features end to end, and want the surface area of a fast-growing business alongside the depth of hard systems problems.
+
+    Minimum Qualifications
+
+    - 3+ years of experience building and operating production backend services.
+    - Strong API design and distributed-systems fundamentals, with fluency in a backend language such as Go, Ruby, or Python.
+    - Demonstrated track record of shipping features end to end with solid testing, observability, and operational ownership.
+    - Experience debugging across service boundaries and collaborating across cross-functional teams.
+    - Bachelor's degree in Computer Science or a related field, or equivalent practical experience.
+
+    Preferred Qualifications
+
+    - Experience in ad tech, retail media, or other publisher- or partner-facing platforms.
+    - Familiarity with event streaming and reliability patterns at scale (e.g., Kafka, dead-letter queues, idempotent processing).
+    - Cloud infrastructure experience with AWS or GCP, including data or measurement-adjacent systems.
+    - Experience with data reconciliation, attribution, or catalog and entity mapping.
+    - Experience building partner- or customer-facing APIs, including documentation, error contracts, and integration test coverage.
+
+    #LI-Remote
+
+    Instacart provides highly market-competitive compensation and benefits in each location where our employees work. This role is remote and the base pay range for a successful candidate is dependent on their permanent work location. Please review our Flex First remote work policy here. Currently, we are only hiring in the following provinces: Ontario, Alberta, British Columbia, and Nova Scotia.
+
+    [... description truncated]

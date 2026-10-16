@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,7 +26,12 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: int | None = None
     proxy_url: str | None = None
+    # Dev default matches docker-compose.yml; override with DATABASE_URL.
+    database_url: str = "postgresql+asyncpg://orbit:orbit@127.0.0.1:5432/orbit"
     orbit_home: Path = Field(default_factory=default_home)
+    # Bind-address overrides for the local API (env ORBIT_API_HOST / ORBIT_API_PORT), e.g. 0.0.0.0 in Docker.
+    orbit_api_host: str | None = None
+    orbit_api_port: int | None = None
 
     @property
     def data_dir(self) -> Path:
@@ -43,6 +48,10 @@ class Settings(BaseSettings):
     @property
     def persona_dir(self) -> Path:
         return self.orbit_home / "persona"
+
+    def api_bind(self, api: ApiConfig) -> tuple[str, int]:
+        """Host and port the local API listens on: env overrides first, then config.yaml."""
+        return self.orbit_api_host or api.host, self.orbit_api_port or api.port
 
     def api_key_for(self, env_name: str) -> str | None:
         """Look up a provider key by env var name; OPENAI_API_KEY also comes from .env."""
@@ -90,6 +99,42 @@ class JobsConfig(BaseModel):
     startup_notice: bool = True
 
 
+class RadarConfig(BaseModel):
+    """Internship Radar preferences (config.yaml `radar:`); the watcher itself is enabled under `watchers:`."""
+
+    # Terms in PostingExtraction's "<Season> <YYYY>" form. In October 2026 (3A fall term) Summer 2027 is
+    # the main recruiting cycle and Fall 2027 postings start to appear; most Winter 2027 roles are filled.
+    terms: list[str] = Field(default_factory=lambda: ["Summer 2027", "Fall 2027"])
+    # Canonical extracted locations: "City, XX" (two-letter province) or "Remote (Canada)".
+    locations: list[str] = Field(
+        default_factory=lambda: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
+    )
+    # Hard filter on the extracted role type (orbit.radar.models.RoleType values, e.g. swe, ml_ai).
+    # Empty means any role. Unknown names fail at load instead of silently matching nothing.
+    role_types: list[str] = Field(default_factory=list)
+    # Cosine-similarity cut-off for a Telegram push. Placeholder until calibrated in M5.5.
+    notify_threshold: float = Field(default=0.45, ge=-1.0, le=1.0)
+    # Relative to ORBIT_HOME; same default as orbit.radar.profile.DEFAULT_RESUME_PATH.
+    resume_path: str = "data/resume.md"
+    max_extract_per_poll: int = Field(default=40, ge=0)
+    max_notifications_per_poll: int = Field(default=5, ge=0)
+
+    @field_validator("role_types")
+    @classmethod
+    def _known_role_types(cls, values: list[str]) -> list[str]:
+        from orbit.radar.models import RoleType  # local import: keep config free of radar imports at load
+
+        out: list[str] = []
+        for value in values:
+            key = str(value).strip().lower()
+            if key not in RoleType.__members__:
+                allowed = ", ".join(RoleType.__members__)
+                raise ValueError(f"unknown radar.role_types entry {value!r}; use one of: {allowed}")
+            if key not in out:
+                out.append(key)
+        return out
+
+
 class Config(BaseModel):
     providers: dict[str, ProviderConfig]
     tasks: dict[str, TaskConfig]
@@ -98,9 +143,10 @@ class Config(BaseModel):
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
     jobs: JobsConfig = Field(default_factory=JobsConfig)
     watchers: list[dict[str, Any]] = Field(default_factory=list)
+    radar: RadarConfig = Field(default_factory=RadarConfig)
 
 
 def load_config(path: Path | None = None) -> Config:
     path = path or default_home() / "config.yaml"
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         return Config.model_validate(yaml.safe_load(f) or {})

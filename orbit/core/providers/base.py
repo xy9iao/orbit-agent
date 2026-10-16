@@ -39,6 +39,15 @@ class Response:
         return msg
 
 
+@dataclass
+class EmbedResponse:
+    """One vector per input text, in input order."""
+
+    vectors: list[list[float]]
+    usage: dict[str, int] = field(default_factory=dict)
+    raw: Any = None
+
+
 class Provider(Protocol):
     name: str
 
@@ -49,3 +58,5 @@ class Provider(Protocol):
         tools: list[dict[str, Any]] | None = None,
         **params: Any,
     ) -> Response: ...
+
+    async def embed(self, model: str, texts: list[str], **params: Any) -> EmbedResponse: ...

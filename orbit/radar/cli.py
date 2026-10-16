@@ -1,0 +1,508 @@
+"""`orbit radar ...`: Internship Radar commands.
+
+Unlike the rest of the `orbit` CLI, these do not call the daemon's HTTP API. Each command opens its own
+DB engine and model router from .env/config.yaml (PLAN.md Decisions: "Radar CLI transport"), so they
+work while the daemon is down.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import time
+from collections.abc import AsyncIterator, Callable, Coroutine, Sequence
+from contextlib import AbstractAsyncContextManager, asynccontextmanager
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+import typer
+from sqlalchemy.exc import SQLAlchemyError
+
+from orbit.config import Config, Settings, load_config
+from orbit.core.router import ModelRouter
+from orbit.storage.db import Database
+
+if TYPE_CHECKING:
+    from orbit.radar.match import ScoreCounts, TopMatch
+    from orbit.radar.poll import PollableCompany, PollSummary
+    from orbit.radar.sources import PoliteClient
+
+radar_app = typer.Typer(
+    help="Internship Radar commands (run directly against the DB, not via the daemon)",
+    no_args_is_help=True,
+)
+
+
+@dataclass
+class RadarRuntime:
+    settings: Settings
+    config: Config
+    db: Database
+    router: ModelRouter
+
+
+@asynccontextmanager
+async def default_runtime(settings: Settings | None = None) -> AsyncIterator[RadarRuntime]:
+    """Connect + migrate the DB and build the router; model usage is recorded like the daemon does."""
+    settings = settings or Settings()
+    config = load_config(settings.orbit_home / "config.yaml")
+    db = Database(settings.database_url)
+    await db.connect()
+    try:
+        await db.migrate()
+        router = ModelRouter.from_config(config, settings, usage_sink=db.add_usage)
+        yield RadarRuntime(settings, config, db, router)
+    finally:
+        await db.close()
+
+
+# Commands call `open_runtime()` through this module attribute, so tests can swap in a test DB and a
+# router built on FakeProvider with monkeypatch.setattr("orbit.radar.cli.open_runtime", ...).
+open_runtime: Callable[..., AbstractAsyncContextManager[RadarRuntime]] = default_runtime
+
+
+def _fail(msg: str) -> typer.Exit:
+    typer.secho(msg, fg="red", err=True)
+    return typer.Exit(1)
+
+
+def _run[T](coro: Coroutine[Any, Any, T]) -> T:
+    """asyncio.run with the expected failures turned into a one-line error and exit code 1."""
+    try:
+        return asyncio.run(coro)
+    except (FileNotFoundError, ValueError) as e:
+        raise _fail(str(e)) from None
+    except (OSError, SQLAlchemyError) as e:
+        first_line = (str(e).splitlines() or [""])[0]
+        raise _fail(f"database error ({e.__class__.__name__}): {first_line}") from None
+
+
+def require_task(router: ModelRouter, task: str) -> None:
+    """Fail with a clear message if the provider serving `task` has no API key."""
+    tc = router.config.tasks.get(task) or router.config.tasks.get("chat")
+    if tc is not None and tc.provider in router.providers:
+        return
+    if tc is None:
+        raise _fail(f"config.yaml has no '{task}' task (and no 'chat' fallback)")
+    pc = router.config.providers.get(tc.provider)
+    env = pc.api_key_env if pc else "the provider's API key"
+    raise _fail(f"no provider for the '{task}' task: '{tc.provider}' needs {env} set in .env or the environment")
+
+
+def default_resume_path(settings: Settings, config: Config) -> Path:
+    """config.yaml `radar.resume_path`, relative to ORBIT_HOME (an absolute path is used as is)."""
+    return settings.orbit_home / config.radar.resume_path
+
+
+@radar_app.command()
+def resume(
+    path: Path | None = typer.Argument(  # noqa: B008
+        None, help="Resume as .md or .txt (default: radar.resume_path in config.yaml, under ORBIT_HOME)"
+    ),
+) -> None:
+    """Embed your resume and store it as the radar profile (skipped if the text is unchanged)."""
+    from orbit.radar.profile import load_resume, set_resume
+
+    if path is not None:
+        try:
+            load_resume(path)  # fail fast on a missing or unsupported file, before touching the DB
+        except (FileNotFoundError, ValueError) as e:
+            raise _fail(str(e)) from None
+
+    async def _main():
+        async with open_runtime() as rt:
+            # The default lives in config.yaml, which the runtime loads; a bad file still fails before embedding.
+            resume_path = path if path is not None else default_resume_path(rt.settings, rt.config)
+            load_resume(resume_path)
+            require_task(rt.router, "embed")
+            return resume_path, await set_resume(rt.db, rt.router, resume_path)
+
+    resume_path, result = _run(_main())
+    action = "embedded" if result.changed else "unchanged, not re-embedded"
+    typer.echo(f"resume {action}: {result.chars} chars, sha256 {result.text_hash[:12]} ({resume_path})")
+    if result.truncated:
+        typer.secho("note: resume is very long; only the first part was embedded (full text stored)", fg="yellow")
+
+
+@radar_app.command()
+def seed(
+    file: Path | None = typer.Option(  # noqa: B008
+        None, "--file", "-f", help="Seeds YAML (default: orbit/radar/seeds.yaml shipped with Orbit)"
+    ),
+    prune: bool = typer.Option(False, "--prune", help="Deactivate DB companies that are no longer in the file"),
+) -> None:
+    """Upsert the seed companies into the DB by slug (never deletes; inactive companies stay inactive)."""
+    from orbit.radar.seed import DEFAULT_SEEDS_PATH, load_seeds, seed_companies
+
+    path = file if file is not None else DEFAULT_SEEDS_PATH
+    try:
+        seeds = load_seeds(path)  # validate before touching the DB
+    except (FileNotFoundError, ValueError) as e:
+        raise _fail(str(e)) from None
+
+    async def _main():
+        async with open_runtime() as rt, rt.db.session() as session:
+            result = await seed_companies(session, seeds, prune=prune)
+            await session.commit()
+            return result
+
+    r = _run(_main())
+    typer.echo(
+        f"seeded {len(seeds)} companies from {path}: {len(r.inserted)} inserted, {len(r.updated)} updated, "
+        f"{len(r.unchanged)} unchanged"
+    )
+    if r.deactivated:
+        typer.secho(f"deactivated (not in file): {', '.join(r.deactivated)}", fg="yellow")
+    kept = [s for s in r.missing if s not in r.deactivated]
+    if kept:
+        typer.secho(f"in the DB but not in the file (left as is; --prune deactivates): {', '.join(kept)}", fg="yellow")
+
+
+def make_http_client() -> PoliteClient:
+    """The job-board HTTP client, with the same PoliteClient defaults as the watcher; tests swap this for one
+    on httpx.MockTransport."""
+    from orbit.radar.sources import PoliteClient
+
+    return PoliteClient()
+
+
+@radar_app.command("verify-sources")
+def verify_sources_cmd(
+    source: str | None = typer.Option(None, "--source", "-s", help="Only check one board type"),
+    min_ok: int | None = typer.Option(
+        None, "--min-ok", help="Exit 1 if fewer companies pass (default: 20, or 1 with --source)"
+    ),
+) -> None:
+    """Fetch every active company's board live, report ok/error and posting counts, store last_verify_*."""
+    from orbit.radar.verify import format_report, verify_sources
+
+    threshold = min_ok if min_ok is not None else (20 if source is None else 1)
+
+    async def _main():
+        async with open_runtime() as rt, make_http_client() as client:
+            return await verify_sources(rt.db, client, source=source)
+
+    report = _run(_main())
+    typer.echo(format_report(report, threshold))
+    if report.ok_count < threshold:
+        raise typer.Exit(1)
+
+
+def select_companies[C: PollableCompany](
+    companies: Sequence[C], slugs: Sequence[str] | None, source: str | None
+) -> list[C]:
+    """Narrow the active companies to `--company` slugs and/or one `--source`; unknown names raise ValueError."""
+    from orbit.radar.sources import available_sources
+
+    if source is not None and source not in available_sources():
+        raise ValueError(f"unknown source {source!r}; known: {', '.join(available_sources())}")
+    selected = [c for c in companies if source is None or c.source == source]
+    if slugs:
+        wanted = set(slugs)
+        missing = sorted(wanted - {c.slug for c in companies})
+        if missing:
+            raise ValueError(
+                f"not an active radar company: {', '.join(missing)} (see `orbit radar seed`; inactive companies "
+                "are not polled)"
+            )
+        selected = [c for c in selected if c.slug in wanted]
+    return selected
+
+
+def format_poll(summary: PollSummary, seconds: float) -> str:
+    """One line per company, then a totals line."""
+    header = ("slug", "status", "fetched", "new", "updated", "closed", "reopened")
+    width = max([len(header[0]), *(len(r.slug) for r in summary.results)])
+    lines = [f"{header[0]:<{width}}  {header[1]:<6}" + "".join(f"  {h:>8}" for h in header[2:]) + "  error"]
+    for r in summary.results:
+        counts = "".join(f"  {n:>8}" for n in (r.fetched, r.new, r.updated, r.closed, r.reopened))
+        status = "ok" if r.ok else "ERROR"
+        lines.append(f"{r.slug:<{width}}  {status:<6}{counts}" + (f"  {r.error}" if r.error else ""))
+    lines.append(
+        f"total: {summary.companies} companies, {summary.ok} ok, {summary.failed} failed; "
+        f"fetched {summary.fetched}, new {summary.new}, updated {summary.updated}, closed {summary.closed}, "
+        f"reopened {summary.reopened} ({seconds:.1f}s)"
+    )
+    return "\n".join(lines)
+
+
+@radar_app.command()
+def poll(
+    company: list[str] | None = typer.Option(  # noqa: B008
+        None, "--company", "-c", help="Only poll this active company slug (repeatable)"
+    ),
+    source: str | None = typer.Option(None, "--source", "-s", help="Only poll one board type"),
+) -> None:
+    """Poll the active companies' boards once and sync postings (the watcher's first stage).
+
+    `orbit radar extract`, `embed` and `top` run the later stages by hand.
+
+    Needs no LLM key. Exit code 1 only when every polled company failed.
+    """
+    from orbit.radar.poll import PollSummary, active_companies, poll_all
+
+    try:
+        select_companies([], None, source)  # reject an unknown source before touching the DB
+    except ValueError as e:
+        raise _fail(str(e)) from None
+
+    async def _main():
+        async with open_runtime() as rt, make_http_client() as client:
+            companies = await active_companies(rt.db)
+            if not companies:
+                return None
+            selected = select_companies(companies, company, source)
+            if not selected:  # e.g. --source with no active companies on that board type
+                return PollSummary(), 0.0
+            t0 = time.perf_counter()
+            summary = await poll_all(rt.db, client, companies=selected)
+            return summary, time.perf_counter() - t0
+
+    outcome = _run(_main())
+    if outcome is None:
+        typer.secho("no active companies in the radar; run `orbit radar seed` first", fg="yellow")
+        return
+    summary, seconds = outcome
+    if not summary.results:
+        typer.secho(f"no active {source} companies to poll", fg="yellow")
+        return
+    typer.echo(format_poll(summary, seconds))
+    if summary.ok == 0:
+        raise typer.Exit(1)
+
+
+async def count_open(db: Database, extraction_statuses: Sequence[str]) -> int:
+    """Open postings whose extraction_status is one of `extraction_statuses`."""
+    from sqlalchemy import func, select
+
+    from orbit.storage.models import Posting
+
+    async with db.session() as s:
+        return int(
+            await s.scalar(
+                select(func.count())
+                .select_from(Posting)
+                .where(Posting.status == "open", Posting.extraction_status.in_(list(extraction_statuses)))
+            )
+            or 0
+        )
+
+
+@radar_app.command()
+def extract(
+    retry_failed: bool = typer.Option(False, "--retry-failed", help="Also retry postings whose extraction failed"),
+    limit: int | None = typer.Option(
+        None, "--limit", "-n", min=1, help="Postings to extract, newest first (default: radar.max_extract_per_poll)"
+    ),
+) -> None:
+    """Run LLM extraction on pending open postings (the watcher's extract stage, by hand).
+
+    Exit code 1 when no provider serves the 'extract' task or the run stopped on provider errors.
+    """
+    from orbit.radar.extract import extract_pending
+    from orbit.radar.pipeline import describe_extract
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "extract")
+            n = limit if limit is not None else rt.config.radar.max_extract_per_poll
+            t0 = time.perf_counter()
+            summary = await extract_pending(rt.db, rt.router, limit=n, retry_failed=retry_failed)
+            seconds = time.perf_counter() - t0
+            left = await count_open(rt.db, ["pending", "failed"] if retry_failed else ["pending"])
+            return summary, seconds, left
+
+    summary, seconds, left = _run(_main())
+    typer.echo(f"extract: {describe_extract(summary)} ({seconds:.1f}s)")
+    what = "pending or failed" if retry_failed else "pending"
+    typer.echo(f"{left} open postings still {what}" + (" (run again to continue)" if left else ""))
+    if summary.aborted:
+        typer.secho(
+            "stopped after repeated provider errors; the remaining postings stay pending (check the API key, "
+            "quota and network)",
+            fg="red",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+@radar_app.command()
+def embed(
+    limit: int | None = typer.Option(
+        None, "--limit", "-n", min=1, help="Postings to embed, newest first (default: all)"
+    ),
+) -> None:
+    """Embed extracted internship postings whose embedding is missing or stale (backfill; the watcher does it too).
+
+    Exit code 1 when no provider serves the 'embed' task or the run stopped after repeated batch failures.
+    """
+    from orbit.radar.match import describe_embed, embed_pending
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "embed")
+            t0 = time.perf_counter()
+            summary = await embed_pending(rt.db, rt.router, limit=limit)
+            return summary, time.perf_counter() - t0
+
+    summary, seconds = _run(_main())
+    typer.echo(f"embed: {describe_embed(summary)} ({seconds:.1f}s)")
+    if summary.aborted:
+        typer.secho(
+            "stopped after repeated embedding failures; the remaining postings stay pending (check the API key, "
+            "quota and network)",
+            fg="red",
+            err=True,
+        )
+        raise typer.Exit(1)
+
+
+def _printable(text: str) -> str:
+    """Replace characters the console can't encode (the eval banner's warning sign on a GBK/cp1252 console)."""
+    import sys
+
+    encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+    return text.encode(encoding, errors="replace").decode(encoding, errors="replace")
+
+
+@radar_app.command("eval")
+def eval_command(
+    labels: Path | None = typer.Option(  # noqa: B008
+        None, "--labels", "-l", help="Label file (default: evals/radar_labels.yaml under ORBIT_HOME)"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Load and summarize the labels without any LLM call"),
+) -> None:
+    """Per-field extraction accuracy against the labeled set; the summary is saved for `orbit radar stats`.
+
+    Exit code 1 when the labels are invalid, no provider serves the 'extract' task, or the run stopped
+    after repeated provider errors (no score is saved then).
+    """
+    from orbit.radar import eval as radar_eval
+
+    path = labels if labels is not None else Settings().orbit_home / radar_eval.DEFAULT_LABELS_PATH
+    try:
+        labelset = radar_eval.load_labels(path)  # validated before touching the DB or the model
+    except (FileNotFoundError, ValueError) as e:
+        raise _fail(str(e)) from None
+    unverified = radar_eval.is_unverified(labelset)
+    if dry_run:
+        typer.echo(_printable(radar_eval.dry_run(labelset)))
+        return
+
+    async def _main():
+        async with open_runtime() as rt:
+            require_task(rt.router, "extract")
+            t0 = time.perf_counter()
+            try:
+                report = await radar_eval.run_eval(rt.router, labelset)
+            except radar_eval.EvalAbortedError as e:
+                raise _fail(f"eval stopped, no score saved: {e}") from None
+            await radar_eval.save_last_eval(rt.db, report, path, unverified)
+            return report, time.perf_counter() - t0
+
+    report, seconds = _run(_main())
+    typer.echo(_printable(radar_eval.format_report(report, unverified)))
+    typer.echo(f"saved to kv '{radar_eval.KV_LAST_EVAL}' ({seconds:.1f}s)")
+
+
+TOP_TITLE_WIDTH = 60
+TOP_COMPANY_WIDTH = 24
+
+
+def _clip(text: str, width: int) -> str:
+    text = " ".join(text.split())
+    return text if len(text) <= width else text[: width - 3] + "..."
+
+
+def format_top(matches: Sequence[TopMatch], threshold: float, counts: ScoreCounts) -> str:
+    """A table of the best matches, with a marker line where `threshold` (notify_threshold) cuts the list."""
+    header = ("#", "score", "company", "title", "terms", "locations", "url")
+    rows = [
+        (
+            str(rank),
+            f"{m.score:.3f}",
+            _clip(m.company, TOP_COMPANY_WIDTH),
+            _clip(m.title, TOP_TITLE_WIDTH) + (f" [{m.notification}]" if m.notification else ""),
+            ", ".join(m.terms) or "not stated",
+            "; ".join(m.locations) or "not stated",
+            m.url,
+        )
+        for rank, m in enumerate(matches, 1)
+    ]
+    widths = [max(len(header[i]), *(len(r[i]) for r in rows)) for i in range(len(header) - 1)]
+
+    def line(cells: Sequence[str]) -> str:
+        return "  ".join(c.ljust(w) for c, w in zip(cells, widths, strict=False)) + "  " + cells[-1]
+
+    marker = f"---- notify_threshold {threshold:.3f}: rows above this line qualify for a Telegram push ----"
+    lines = [line(header)]
+    marked = False
+    for match_, row in zip(matches, rows, strict=True):
+        if not marked and match_.score < threshold:
+            lines.append(marker)
+            marked = True
+        lines.append(line(row))
+    if not marked:
+        lines.append(marker)
+    lines.append(
+        f"{counts.scored} open postings scored; {counts.above} at or above notify_threshold {threshold:.3f}"
+    )
+    return "\n".join(lines)
+
+
+@radar_app.command()
+def top(
+    n: int = typer.Argument(10, min=1, help="How many matches to show"),
+    new: bool = typer.Option(False, "--new", help="Only postings that were never notified"),
+    threshold: float | None = typer.Option(
+        None, "--threshold", "-t", help="Draw the cut line here instead of radar.notify_threshold (to calibrate it)"
+    ),
+) -> None:
+    """Print the best open matches by score, rescoring first (needs no API key).
+
+    Already-notified postings are shown with their notification status unless --new is given.
+    """
+    from orbit.radar.match import score_counts, score_postings, top_matches, why_nothing_scored
+
+    async def _main():
+        async with open_runtime() as rt:
+            cut = threshold if threshold is not None else rt.config.radar.notify_threshold
+            scoring = await score_postings(rt.db, rt.config.radar)
+            matches = await top_matches(rt.db, n, new_only=new)
+            counts = await score_counts(rt.db, cut)
+            hint = None if matches else await why_nothing_scored(rt.db)
+            return scoring, matches, counts, cut, hint
+
+    scoring, matches, counts, cut, hint = _run(_main())
+    if not matches:
+        if new and counts.scored:
+            typer.secho(f"all {counts.scored} scored postings were already notified (drop --new)", fg="yellow")
+        else:
+            typer.secho(_printable(f"no scored postings: {hint}"), fg="yellow")
+        return
+    against = "resume + goal" if scoring.goal else "resume"
+    typer.echo(f"top {len(matches)} open matches by cosine similarity to your {against}:")
+    typer.echo(_printable(format_top(matches, cut, counts)))
+
+
+@radar_app.command()
+def stats(
+    as_json: bool = typer.Option(False, "--json", help="Print the metrics as JSON instead of text"),
+) -> None:
+    """Print the radar metrics: companies, postings, extraction accuracy, notification latency, uptime.
+
+    Read-only and needs no API key. Accuracy comes from the last `orbit radar eval` run.
+    """
+    import json
+
+    from orbit.radar.stats import collect_stats, format_stats
+
+    async def _main():
+        async with open_runtime() as rt:
+            return await collect_stats(rt.db)
+
+    result = _run(_main())
+    if as_json:
+        typer.echo(json.dumps(result.to_dict(), indent=2))  # ensure_ascii (the default) is safe on any console
+    else:
+        typer.echo(_printable(format_stats(result)))

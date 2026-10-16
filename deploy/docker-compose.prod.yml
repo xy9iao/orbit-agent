@@ -1,0 +1,48 @@
+# Production overrides for one small EC2 instance (2 GiB RAM). Always used together with the base file:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+# or set COMPOSE_FILE=docker-compose.yml:deploy/docker-compose.prod.yml in .env.
+# Prepared, not executed by agents; see deploy/RUNBOOK.md. Needs docker compose >= 2.24.4 (`!reset`).
+
+x-logging: &logging
+  # Docker's default json-file driver never rotates; cap each container at 5 x 10 MB.
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    restart: always
+    environment:
+      # No dev default in prod: compose refuses to start without it.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    # Nothing on the host needs 5432 in prod (backups and psql go through `docker compose exec`),
+    # so the port is not published at all, not even on 127.0.0.1.
+    ports: !reset []
+    # Modest settings for a 2 GiB instance shared with Orbit and the Docker build.
+    command:
+      - postgres
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=40
+    mem_limit: 640m
+    # Give Postgres time for a clean shutdown checkpoint instead of SIGKILL after 10 s.
+    stop_grace_period: 60s
+    logging: *logging
+
+  orbit:
+    restart: always
+    environment:
+      DATABASE_URL: postgresql+asyncpg://orbit:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/orbit
+    # Port stays as in the base file: 127.0.0.1:${ORBIT_PORT:-8765} only, reach it through an SSH tunnel.
+    mem_limit: 768m
+    # STOPSIGNAL SIGINT lets Orbit stop the scheduler, channels and DB pool; allow it 30 s.
+    stop_grace_period: 30s
+    logging: *logging
