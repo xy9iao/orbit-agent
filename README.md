@@ -53,7 +53,7 @@ flowchart TB
     agent["Agent loop"]
     tools["Tools: reminders, memory,<br/>search_postings, set_radar_goal"]
     router["Model Router<br/>task to provider/model"]
-    llm["OpenAI-compatible API"]
+    llm["Anthropic Messages API<br/>+ OpenAI-compatible API"]
 
     subgraph sched["APScheduler, in-process"]
         jobs["Reminders + briefing"]
@@ -117,7 +117,8 @@ provides one). Secrets live only in `.env` (git-ignored); copy `.env.example` an
 
 | Variable | Needed for |
 |---|---|
-| `OPENAI_API_KEY` | chat, extraction (`extract` task) and embeddings (`embed` task) |
+| `ANTHROPIC_API_KEY` | Claude: chat, briefing and code (Sonnet 5.5), extraction, fast and summarize (Haiku 5.5) |
+| `OPENAI_API_KEY` | embeddings (`embed` task, text-embedding-3-small) |
 | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_OWNER_CHAT_ID` | the Telegram channel and all pushes. Without them Orbit runs CLI-only. |
 | `DATABASE_URL` | the Postgres URL (Compose sets its own for the container) |
 | `TEST_DATABASE_URL` | pytest only |
@@ -256,8 +257,8 @@ stores a free-text goal ("ML infrastructure, Toronto, summer 2027") that is blen
 | `max_notifications_per_poll` | `5` | Individual Telegram messages per run; the rest go into one digest message. |
 
 The watcher itself is enabled under `watchers:` (`type: internship_radar, interval_minutes: 30`).
-The models come from the `extract` (gpt-6-luna) and `embed` (text-embedding-3-small, 1536 dims)
-tasks under `tasks:`.
+The models come from the `extract` (claude-haiku-5-5 at low effort; gpt-6-luna is the commented
+alternative) and `embed` (text-embedding-3-small, 1536 dims) tasks under `tasks:`.
 
 ## Metrics
 
@@ -269,7 +270,7 @@ key or Telegram credentials, so the metrics that need them are still pending.
 |---|---|
 | Companies tracked | **31** companies hiring in Canada: 14 on Ashby, 11 on Greenhouse, 6 on Lever. `verify-sources` live run: **31/31 OK** (1,957 postings listed, 49 with intern titles). |
 | Postings stored | A live `orbit radar poll` of all 31 boards fetched and stored **1,957 postings in 14.1 s**. An immediate re-poll of the 14 Ashby boards gave **0 new, 0 updated, 0 closed** (idempotent). |
-| Extraction accuracy per field | **Pending.** Needs `OPENAI_API_KEY`. The eval set has 30 drafted labels (18 internship, 12 not; all three boards) that are still marked *UNVERIFIED, needs human review*, so the first numbers will be provisional until a human checks them. |
+| Extraction accuracy per field | **Provisional** (30 labels, still *UNVERIFIED, needs human review*). 2026-10-16, gpt-6-luna / claude-haiku-5-5, both low effort: is_internship 100 / 100%, terms 93.3 / 90.0%, locations 86.7 / 80.0%, remote_ok 93.3 / 96.7%, canada_eligible 100 / 96.7%, role_type 93.3 / 86.7%, tech_stack 86.7 / 80.0%. |
 | Posting-to-notification latency | **Pending.** Median and p90 of `sent_at - first_seen_at`; accrues once the daemon runs with OpenAI and Telegram keys. |
 | Uptime days | **Pending.** Distinct days with at least one successful radar run; accrues once the daemon runs continuously. |
 
@@ -305,8 +306,9 @@ $env:TEST_DATABASE_URL = "postgresql+asyncpg://orbit:orbit@127.0.0.1:5432/orbit_
 
 - `.env`: secrets and machine-specific values (never committed).
 - `config.yaml`: providers, the task → model table, agent limits, the local API address, jobs,
-  watchers and the `radar:` section. Any OpenAI-compatible endpoint (DeepSeek, Ollama, vLLM) works
-  by adding a provider with its `base_url`.
+  watchers and the `radar:` section. A provider is `type: anthropic` (the Anthropic Messages API) or
+  `type: openai` (the default): any OpenAI-compatible endpoint (DeepSeek, Ollama, vLLM) works by
+  adding a provider with its `base_url`.
 - `persona/system.md`: Orbit's system prompt. `persona/skills/*.md`: extra prompts loaded per task
   (for example the briefing).
 - `memory/MEMORY.md`: long-term memory that Orbit maintains itself through the `remember` and

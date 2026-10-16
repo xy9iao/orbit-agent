@@ -8,7 +8,7 @@ from typing import Any
 from loguru import logger
 
 from orbit.config import Config, Settings
-from orbit.core.providers import OpenAIProvider, Provider, Response
+from orbit.core.providers import AnthropicProvider, OpenAIProvider, Provider, Response
 
 UsageSink = Callable[[str, str, str, int, int], Awaitable[None]]
 
@@ -34,9 +34,14 @@ class ModelRouter:
             if not key:
                 logger.warning("provider '{}' has no API key in env {} - skipped", name, pc.api_key_env)
                 continue
-            providers[name] = OpenAIProvider(
-                name=name, base_url=pc.base_url, api_key=key, proxy=settings.proxy_url
-            )
+            if pc.type == "anthropic":
+                providers[name] = AnthropicProvider(
+                    name=name, api_key=key, base_url=pc.base_url, proxy=settings.proxy_url
+                )
+            else:
+                providers[name] = OpenAIProvider(
+                    name=name, base_url=pc.base_url, api_key=key, proxy=settings.proxy_url
+                )
         return cls(config, providers, usage_sink)
 
     def resolve(self, task: str) -> tuple[Provider, str, dict[str, Any]]:

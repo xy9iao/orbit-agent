@@ -20,10 +20,15 @@ class Response:
     tool_calls: list[ToolCall] = field(default_factory=list)
     usage: dict[str, int] = field(default_factory=dict)
     raw: Any = None
+    # The provider's own content blocks for this turn, when it needs them back verbatim in a tool loop
+    # (Anthropic thinking blocks carry a signature). Other providers drop the key.
+    provider_blocks: list[dict[str, Any]] | None = None
 
     def assistant_message(self) -> dict[str, Any]:
         """Re-encode as an OpenAI-style assistant message so it can be fed back in the tool loop."""
         msg: dict[str, Any] = {"role": "assistant", "content": self.text or None}
+        if self.provider_blocks:
+            msg["provider_blocks"] = self.provider_blocks
         if self.tool_calls:
             msg["tool_calls"] = [
                 {

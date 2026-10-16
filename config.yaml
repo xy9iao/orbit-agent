@@ -4,6 +4,10 @@ providers:
   openai:
     base_url: https://api.openai.com/v1
     api_key_env: OPENAI_API_KEY
+  # Claude through the Anthropic Messages API (official SDK). No embeddings: embed stays on openai.
+  anthropic:
+    type: anthropic
+    api_key_env: ANTHROPIC_API_KEY
   # Any OpenAI-compatible endpoint works the same way, e.g.:
   # deepseek:
   #   base_url: https://api.deepseek.com/v1
@@ -14,20 +18,21 @@ providers:
 
 # Code only ever asks for a *task*; this table decides which model serves it.
 tasks:
-  chat:      { provider: openai, model: gpt-5 }
-  fast:      { provider: openai, model: gpt-5-mini }
-  summarize: { provider: openai, model: gpt-5-mini }
-  code:      { provider: openai, model: gpt-5 }
-  briefing:  { provider: openai, model: gpt-5 }
+  chat:      { provider: anthropic, model: claude-sonnet-5-5 }
+  fast:      { provider: anthropic, model: claude-haiku-5-5 }
+  summarize: { provider: anthropic, model: claude-haiku-5-5 }
+  code:      { provider: anthropic, model: claude-sonnet-5-5 }
+  briefing:  { provider: anthropic, model: claude-sonnet-5-5 }
   # Vectors are stored as vector(1536): changing this model or its dimension
   # needs a new Alembic migration and a re-embed of every posting and profile.
   embed:     { provider: openai, model: text-embedding-3-small }
-  # Radar posting extraction (M4.2): schema-constrained JSON from a small model. Low reasoning
-  # effort keeps it cheap; raise it if `orbit radar eval` accuracy is poor. gpt-6-luna replaced
-  # gpt-5-mini here ($0.10/$0.50 vs $0.25/$2.00 per 1M tokens); switch back if eval accuracy drops.
-  extract:   { provider: openai, model: gpt-6-luna, params: { reasoning_effort: low } }
-  # Extra request params are passed straight to the API, e.g.
-  # chat: { provider: openai, model: gpt-5, params: { reasoning_effort: low } }
+  # Radar posting extraction (M4.2): schema-constrained JSON (structured outputs) from a small model at
+  # low effort; raise effort if `orbit radar eval` accuracy is poor. cache_system puts a prompt-cache
+  # breakpoint on the extraction system prompt. The OpenAI alternative, same price per token:
+  # extract: { provider: openai, model: gpt-6-luna, params: { reasoning_effort: low } }
+  extract:   { provider: anthropic, model: claude-haiku-5-5, params: { effort: low, cache_system: true } }
+  # Extra request params are passed straight to the API. The anthropic provider also translates
+  # `effort` (output_config.effort), `cache_system` and `response_format`; max_tokens defaults to 8192.
 
 agent:
   name: Orbit

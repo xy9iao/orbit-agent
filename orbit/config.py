@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, Field, field_validator
@@ -23,6 +23,7 @@ class Settings(BaseSettings):
     )
 
     openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: int | None = None
     proxy_url: str | None = None
@@ -54,17 +55,21 @@ class Settings(BaseSettings):
         return self.orbit_api_host or api.host, self.orbit_api_port or api.port
 
     def api_key_for(self, env_name: str) -> str | None:
-        """Look up a provider key by env var name; OPENAI_API_KEY also comes from .env."""
+        """Look up a provider key by env var name; OPENAI_API_KEY and ANTHROPIC_API_KEY also come from .env."""
         value = os.environ.get(env_name)
         if value:
             return value
         if env_name == "OPENAI_API_KEY":
             return self.openai_api_key
+        if env_name == "ANTHROPIC_API_KEY":
+            return self.anthropic_api_key
         return None
 
 
 class ProviderConfig(BaseModel):
-    base_url: str
+    # "openai": any OpenAI-compatible endpoint (base_url required). "anthropic": the Anthropic Messages API.
+    type: Literal["openai", "anthropic"] = "openai"
+    base_url: str | None = None
     api_key_env: str = "OPENAI_API_KEY"
 
 
