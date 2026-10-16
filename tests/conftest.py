@@ -61,6 +61,7 @@ def make_config() -> Config:
             "chat": TaskConfig(provider="openai", model="big"),
             "fast": TaskConfig(provider="cheap", model="small", params={"temperature": 0}),
             "embed": TaskConfig(provider="cheap", model="embed-small"),
+            "extract": TaskConfig(provider="cheap", model="extract-small"),
         },
         agent=AgentConfig(history_turns=10, max_tool_rounds=4),
     )
