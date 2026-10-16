@@ -31,3 +31,13 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 
 - **Q: Why honor `Retry-After` and space requests per host instead of just retrying quickly?** A: These are free public APIs. Hammering them risks an IP ban that would take the whole radar down, and polling every 30 minutes has plenty of slack, so politeness costs nothing that matters.
 - **Q: How do you keep fixture tests honest when the real APIs change shape?** A: Fixtures are real recordings, not hand-written guesses, and `verify-sources` runs the adapters live against every seeded board, so drift shows up as a failed company rather than silently passing tests.
+
+## Extraction (`orbit/radar/models.py` PostingExtraction, `orbit/radar/extract.py`)
+1. Each new posting's title, company, location and (truncated) description go to the `extract` router task, which returns JSON constrained by a strict JSON Schema generated from the `PostingExtraction` Pydantic model.
+2. Pydantic validators then normalize the model's output into canonical values ("Summer 2027", "Toronto, ON", "Remote (Canada)", lowercase tech names) and reject anything they can't normalize.
+3. On a JSON or validation error the call is retried once with the error text fed back; a second failure, or any provider error, records `extraction_status = 'failed'` with the error message.
+4. A cheap keyword prefilter skips obvious senior roles without an LLM call, and only postings whose `content_hash` changed are ever re-extracted.
+5. No DB connection is held during the LLM call, and the result is written only if the posting's content hash is still the one that was sent.
+
+- **Q: Why both a strict JSON schema and Pydantic validation?** A: Strict mode guarantees the shape (keys and types), but not the meaning: the model can still write "summer '27" or "Toronto Ontario". Validators turn that into canonical values the SQL filters can compare exactly, and reject output that can't be normalized.
+- **Q: Why write with `WHERE content_hash = :hash`?** A: It's optimistic concurrency. The LLM call takes seconds, and if a poll updated the posting meanwhile, storing the old extraction would label new content with stale fields. The guarded UPDATE affects zero rows, and the posting stays pending for the next run.
