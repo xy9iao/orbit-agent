@@ -23,7 +23,7 @@ Orbit answers through the `search_postings` tool.
   fetch are closed and reopened if they come back. A failed fetch closes nothing.
 - **Schema-constrained extraction.** The JSON schema is generated from a Pydantic model and sent as
   a strict `response_format`. Normalizing validators clean up terms, locations and tech stacks, one
-  retry feeds the validation error back, and a keyword prefilter skips obvious senior roles with no
+  retry feeds the validation error back, and a keyword prefilter skips obvious senior and PhD-only roles with no
   LLM call. `orbit radar eval` measures per-field accuracy against a labeled set.
 - **pgvector matching.** Hard rules (open, internship, term overlap, location or remote-in-Canada)
   run as SQL filters; survivors are ranked by cosine similarity to the resume embedding, blended
@@ -249,7 +249,7 @@ stores a free-text goal ("ML infrastructure, Toronto, summer 2027") that is blen
 |---|---|---|
 | `terms` | `["Winter 2027", "Summer 2027"]` | Work terms you want, as `"<Season> <YYYY>"`. Postings whose terms are unstated still pass. |
 | `locations` | Toronto, Waterloo, Kitchener, `Remote (Canada)` | A posting passes if an extracted location is listed, or it is remote and open to Canada. Format `"City, XX"`. |
-| `role_types` | `[swe, ml_ai, infra, data, research]` | Hard filter on the extracted role type; empty means any role. Unknown names fail at load. |
+| `role_types` | `[swe, ml_ai, infra, research]` | Hard filter on the extracted role type; empty means any role. Unknown names fail at load. |
 | `notify_threshold` | `0.50` (calibrated) | Minimum score that gets pushed to Telegram (see above). |
 | `resume_path` | `data/resume.md` | Resume file, relative to `ORBIT_HOME`. |
 | `max_extract_per_poll` | `40` | Caps LLM extraction cost per watcher run. |

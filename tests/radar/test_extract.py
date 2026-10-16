@@ -22,6 +22,7 @@ from orbit.radar.extract import (
     extract_pending,
     extract_posting,
     prefilter,
+    skip_reason,
     truncate_description,
 )
 from orbit.radar.models import PostingExtraction
@@ -173,6 +174,32 @@ def test_prefilter_skips_obvious_non_student_titles(title):
 )
 def test_prefilter_keeps_possible_student_roles(title):
     assert prefilter(posting(title=title, description_text="Join our team.")) is False
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        "2026 Intern, PhD Research Scientist",
+        "PhD Data Scientist, Intern",
+        "Research Intern (Ph.D.)",
+        "Ph.D Machine Learning Co-op",
+        "Ph D Student Researcher",
+        "Internship for PhDs",
+        "phd software engineering intern",
+    ],
+)
+def test_prefilter_skips_phd_titles_despite_student_words(title):
+    outcome = skip_reason(posting(title=title, description_text="This internship is for students."))
+    assert outcome is not None and "PhD role" in outcome
+
+
+@pytest.mark.parametrize("title", ["Software Engineering Intern", "Graphd Engineer Intern", "Alphadev Co-op"])
+def test_prefilter_phd_rule_needs_the_whole_word(title):
+    assert prefilter(posting(title=title, description_text="This internship is for students.")) is False
+
+
+def test_prefilter_phd_in_description_only_is_kept():
+    assert prefilter(posting(title="Research Intern", description_text="Open to Bachelor's and PhD students.")) is False
 
 
 def test_prefilter_description_opening_vetoes_skip():

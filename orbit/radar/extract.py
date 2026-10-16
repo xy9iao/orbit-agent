@@ -83,15 +83,21 @@ PREFILTER_DESCRIPTION_CHARS = 600
 
 _NON_STUDENT_RE = re.compile(r"\b(" + "|".join(NON_STUDENT_TITLE_PATTERNS) + r")\b\.?", re.IGNORECASE)
 _STUDENT_RE = re.compile(r"\b(" + "|".join(STUDENT_PATTERNS) + r")\b", re.IGNORECASE)
+# PhD-only roles ("PhD", "Ph.D.", "Ph D", "PhDs") are student roles but not for an undergrad, so this
+# rule ignores the student veto.
+_PHD_RE = re.compile(r"\bph\.?\s?d\.?s?\b", re.IGNORECASE)
 
 
 def skip_reason(posting: PostingText) -> str | None:
-    """Why the posting is obviously not an internship, or None when the LLM should decide.
+    """Why the posting is not worth an LLM call, or None when the LLM should decide.
 
-    Conservative: skip only when the title has a seniority/management word and neither the title nor
-    the opening of the description mentions anything student-like.
+    Skips any title that names a PhD. Otherwise conservative: skip only when the title has a
+    seniority/management word and neither the title nor the opening of the description mentions
+    anything student-like.
     """
     title = posting.title or ""
+    if _PHD_RE.search(title):
+        return f"title: {title.strip()[:200]} (PhD role)"
     senior = _NON_STUDENT_RE.search(title)
     if senior is None:
         return None

@@ -632,7 +632,7 @@ def test_role_types_config_is_validated_and_normalized():
 
 
 def test_repo_config_role_types_parse():
-    assert load_config().radar.role_types == ["swe", "ml_ai", "infra", "data", "research"]
+    assert load_config().radar.role_types == ["swe", "ml_ai", "infra", "research"]
 
 
 async def test_no_resume_is_a_no_op(db: Database):

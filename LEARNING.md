@@ -36,7 +36,7 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 1. Each new posting's title, company, location and (truncated) description go to the `extract` router task, which returns JSON constrained by a strict JSON Schema generated from the `PostingExtraction` Pydantic model.
 2. Pydantic validators then normalize the model's output into canonical values ("Summer 2027", "Toronto, ON", "Remote (Canada)", lowercase tech names) and reject anything they can't normalize.
 3. On a JSON or validation error the call is retried once with the error text fed back; a second failure, or any provider error, records `extraction_status = 'failed'` with the error message.
-4. A cheap keyword prefilter skips obvious senior roles without an LLM call, and only postings whose `content_hash` changed are ever re-extracted.
+4. A cheap keyword prefilter skips obvious senior and PhD-only roles without an LLM call, and only postings whose `content_hash` changed are ever re-extracted.
 5. No DB connection is held during the LLM call, and the result is written only if the posting's content hash is still the one that was sent.
 
 - **Q: Why both a strict JSON schema and Pydantic validation?** A: Strict mode guarantees the shape (keys and types), but not the meaning: the model can still write "summer '27" or "Toronto Ontario". Validators turn that into canonical values the SQL filters can compare exactly, and reject output that can't be normalized.

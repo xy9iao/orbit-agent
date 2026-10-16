@@ -61,7 +61,7 @@ radar:
   locations: ["Toronto, ON", "Waterloo, ON", "Kitchener, ON", "Remote (Canada)"]
   # Hard filter on the extracted role type. Options: swe, ml_ai, data, infra, security, mobile,
   # frontend, hardware, product, design, research, other. Empty list = any role.
-  role_types: [swe, ml_ai, infra, data, research]
+  role_types: [swe, ml_ai, infra, research]
   # Score = 0.8 * similarity to the resume + 0.2 * similarity to the radar goal. Calibrated 2026-10-16 with
   # real gpt-6-luna extractions and text-embedding-3-small: just below Stripe's SWE intern (0.503), the
   # lowest technical role wanted; technical internships scored 0.48-0.57.
