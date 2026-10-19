@@ -219,11 +219,12 @@ Two packs ship today:
 
 | Pack | Collection | Routines |
 |---|---|---|
-| `fitness` | `workouts`: day_type, exercise, sets (weight, unit, reps, rir, assist), pain, energy, notes | 07:30 Tue-Sun: today's plan with last session's numbers. Sun 21:00: weekly summary. |
+| `fitness` | `workouts`: day_type, exercise, sets (weight, unit, reps, rir, assist), pain, energy, notes | 07:30 daily: today's day in the 6+1 cycle (or rest) with last session's numbers and targets. 21:00 daily: a cycle summary, sent only on the day a cycle ends. |
 | `nutrition` | `meals`: meal, items (name, amount, protein_g, kcal), protein_g, kcal, notes | 21:30 daily: protein vs 140-160 g, one suggestion if short. |
 
 Tell Orbit what you trained or ate ("卧推 80kg 8,8,7 RIR 2", "午饭鸡胸 200 g 加一碗米饭") and it logs it
-and confirms in one line. Photos work too: they are saved under `data/media/YYYY-MM-DD/`, sent to the
+and confirms in one line. A routine with nothing to say that day answers `NO_MESSAGE` and nothing is
+pushed. Photos work too: they are saved under `data/media/YYYY-MM-DD/`, sent to the
 model as an image, and the path goes into the record.
 
 ### Your data, outside Orbit

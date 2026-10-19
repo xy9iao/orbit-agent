@@ -29,6 +29,11 @@ PACK_RULES = """规则：
 - 用户发来的照片已经保存，消息里有路径；记录和这张照片相关的内容时，把路径放进 data 的 photo 字段。"""
 
 
+# A routine whose prompt says to send nothing today answers with exactly this; nothing is pushed then.
+NO_MESSAGE = "NO_MESSAGE"
+ROUTINE_SUFFIX = f"\n\n（如果按这个任务的要求现在不需要给用户发消息，只回复 {NO_MESSAGE}，不要别的字。）"
+
+
 def image_part(path: Path) -> dict[str, Any]:
     """An OpenAI-format image content part with the file inlined as a data URL."""
     mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
@@ -140,7 +145,7 @@ class Agent:
         skill = self.packs[pack].skill_path.read_text(encoding="utf-8").strip()
         messages: list[dict[str, Any]] = [
             {"role": "system", "content": self.system_prompt(f"## 当前任务使用的 skill：{pack}\n{skill}")},
-            {"role": "user", "content": f"[定时任务 · {pack}] {prompt}"},
+            {"role": "user", "content": f"[定时任务 · {pack}] {prompt}{ROUTINE_SUFFIX}"},
         ]
         return (await self._loop(messages, self._context(channel, chat_id))).strip() or "（没有内容）"
 
