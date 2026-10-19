@@ -222,3 +222,23 @@ class Run(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
     __table_args__ = (Index("ix_radar_runs_company_id_started_at", "company_id", "started_at"),)
+
+
+class Record(Base):
+    """One entry in a domain pack's collection (a workout, a meal), validated against the pack's JSON Schema.
+
+    `data` is stored as written and never rewritten when a schema changes: `schema_version` says which
+    version of the pack's schema it was validated against.
+    """
+
+    __tablename__ = "records"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    pack: Mapped[str] = mapped_column(String(50))
+    collection: Mapped[str] = mapped_column(String(50))
+    occurred_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+    data: Mapped[Any] = mapped_column(JSONB, nullable=False)
+    schema_version: Mapped[int] = mapped_column(Integer, server_default="1")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_now)
+
+    __table_args__ = (Index("ix_records_pack_collection_occurred_at", "pack", "collection", "occurred_at"),)

@@ -18,7 +18,10 @@ services:
     restart: unless-stopped
 
   orbit:
-    build: .
+    build:
+      context: .
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,6 +39,8 @@ services:
       ORBIT_API_PORT: "8765"
       # Orbit stores and schedules in naive local time (briefing cron, reminders); the container is UTC otherwise.
       TZ: ${TZ:-America/Toronto}
+      # Nightly exports go to a host folder (bind mount below), outside any Docker volume.
+      EXPORT_DIR: /app/exports
     ports:
       - "127.0.0.1:${ORBIT_PORT:-8765}:8765"
     volumes:
@@ -43,6 +48,8 @@ services:
       - ./persona:/app/persona
       - ./data:/app/data
       - ./logs:/app/logs
+      - ./packs:/app/packs
+      - ${EXPORT_HOST_DIR:-./exports}:/app/exports
     healthcheck:
       # The slim image has no curl. urlopen raises on HTTP 503 (db down), so the check fails then too.
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8765/health', timeout=5)"]

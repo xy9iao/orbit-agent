@@ -18,6 +18,7 @@ from orbit.core.agent import Agent
 from orbit.core.memory import MemoryStore
 from orbit.core.router import ModelRouter
 from orbit.core.tools import registry
+from orbit.packs import load_packs
 from orbit.radar import watcher as _radar_watcher  # noqa: F401 - registers the internship_radar watcher
 from orbit.scheduler.scheduler import OrbitScheduler
 from orbit.storage.db import Database
@@ -53,8 +54,9 @@ class OrbitApp:
         self.db_ping_timeout = 2.0  # seconds; /health must answer even when Postgres hangs
         self.memory = MemoryStore(self.settings.memory_dir)
         self.router = ModelRouter.from_config(self.config, self.settings, usage_sink=self._record_usage)
+        self.packs = load_packs(self.settings.packs_path(self.config.packs), self.config.packs.enabled)
         self.agent = Agent(
-            self.config.agent, self.router, registry, self.memory, self.db, self.settings.persona_dir
+            self.config.agent, self.router, registry, self.memory, self.db, self.settings.persona_dir, self.packs
         )
         self.scheduler = OrbitScheduler(self)
         self.agent.scheduler = self.scheduler
@@ -83,6 +85,8 @@ class OrbitApp:
                     self.settings.telegram_bot_token,
                     self.settings.telegram_owner_chat_id,
                     proxy=self.settings.proxy_url,
+                    media_dir=self.settings.media_dir,
+                    home=self.settings.orbit_home,
                 )
             else:
                 logger.warning("telegram enabled but TELEGRAM_BOT_TOKEN / TELEGRAM_OWNER_CHAT_ID missing - CLI only")
@@ -119,7 +123,7 @@ class OrbitApp:
     # ---- message flow ----------------------------------------------------------
     async def handle(self, incoming: Incoming) -> str:
         logger.info("[{}:{}] user: {}", incoming.channel, incoming.chat_id, incoming.text[:200])
-        reply = await self.agent.handle(incoming.channel, incoming.chat_id, incoming.text)
+        reply = await self.agent.handle(incoming.channel, incoming.chat_id, incoming.text, incoming.images)
         logger.info("[{}:{}] orbit: {}", incoming.channel, incoming.chat_id, reply[:200])
         return reply
 
@@ -176,6 +180,7 @@ class OrbitApp:
             "jobs": self.scheduler.jobs(),
             "usage_today": await self.db.usage_today(),
             "memory_entries": len(self.memory.entries()),
+            "packs": list(self.packs),
         }
 
 

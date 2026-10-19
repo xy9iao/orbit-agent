@@ -13,10 +13,12 @@ from loguru import logger
 from tzlocal import get_localzone
 
 from orbit.scheduler.jobs.briefing import run_briefing
+from orbit.scheduler.jobs.routines import run_routine
 from orbit.scheduler.watchers.base import WATCHER_TYPES, Watcher
 
 if TYPE_CHECKING:
     from orbit.app import OrbitApp
+    from orbit.packs import Routine
 
 
 class OrbitScheduler:
@@ -38,6 +40,19 @@ class OrbitScheduler:
                 replace_existing=True,
                 misfire_grace_time=600,
             )
+
+        export = self.orbit.config.jobs.export
+        if export.enabled:
+            self.sched.add_job(
+                self._run_export,
+                CronTrigger.from_crontab(export.cron, timezone=get_localzone()),
+                id="export",
+                replace_existing=True,
+                misfire_grace_time=3600,
+                coalesce=True,
+            )
+
+        self.register_routines()
 
         for wcfg in self.orbit.config.watchers:
             self._register_watcher(dict(wcfg))
@@ -83,6 +98,38 @@ class OrbitScheduler:
             await run_briefing(self.orbit)
         except Exception:
             logger.exception("briefing failed")
+
+    async def _run_export(self) -> None:
+        from orbit.export import nightly_export
+
+        try:
+            await nightly_export(self.orbit.db, self.orbit.settings, self.orbit.config)
+        except Exception:
+            logger.exception("nightly export failed")
+
+    # ---- pack routines -------------------------------------------------------
+    def register_routines(self) -> int:
+        """One cron job per routine of every loaded pack, in local time like reminders."""
+        count = 0
+        for pack in getattr(self.orbit, "packs", {}).values():
+            for i, routine in enumerate(pack.routines):
+                self.sched.add_job(
+                    self.fire_routine,
+                    CronTrigger.from_crontab(routine.cron, timezone=get_localzone()),
+                    args=[pack.name, routine],
+                    id=f"routine-{pack.name}-{i}",
+                    replace_existing=True,
+                    misfire_grace_time=1800,
+                    coalesce=True,
+                )
+                count += 1
+        return count
+
+    async def fire_routine(self, pack: str, routine: Routine) -> None:
+        try:
+            await run_routine(self.orbit, pack, routine)
+        except Exception:
+            logger.exception("routine {} failed", pack)
 
     # ---- watchers ----------------------------------------------------------
     def _register_watcher(self, cfg: dict[str, Any]) -> None:

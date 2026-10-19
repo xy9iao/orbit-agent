@@ -8,4 +8,6 @@ dist/
 data/
 logs/
 memory/
+exports/
+packs/*/.history/
 .pytest_cache/

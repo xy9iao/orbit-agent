@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     # Bind-address overrides for the local API (env ORBIT_API_HOST / ORBIT_API_PORT), e.g. 0.0.0.0 in Docker.
     orbit_api_host: str | None = None
     orbit_api_port: int | None = None
+    # Nightly plain-file snapshots (`orbit export`); relative paths are under ORBIT_HOME.
+    export_dir: Path = Path("data/exports")
 
     @property
     def data_dir(self) -> Path:
@@ -49,6 +51,19 @@ class Settings(BaseSettings):
     @property
     def persona_dir(self) -> Path:
         return self.orbit_home / "persona"
+
+    @property
+    def media_dir(self) -> Path:
+        """Photos received over Telegram, one folder per day (data/media/YYYY-MM-DD/)."""
+        return self.data_dir / "media"
+
+    @property
+    def exports_dir(self) -> Path:
+        return self.export_dir if self.export_dir.is_absolute() else self.orbit_home / self.export_dir
+
+    def packs_path(self, packs: PacksConfig) -> Path:
+        path = Path(packs.dir)
+        return path if path.is_absolute() else self.orbit_home / path
 
     def api_bind(self, api: ApiConfig) -> tuple[str, int]:
         """Host and port the local API listens on: env overrides first, then config.yaml."""
@@ -99,9 +114,25 @@ class BriefingJobConfig(BaseModel):
     cron: str = "0 8 * * *"
 
 
+class ExportJobConfig(BaseModel):
+    """Nightly `orbit export` snapshot + pg_dump into EXPORT_DIR, keeping the newest `keep` of each."""
+
+    enabled: bool = True
+    cron: str = "0 3 * * *"
+    keep: int = Field(default=14, ge=1)
+
+
 class JobsConfig(BaseModel):
     briefing: BriefingJobConfig = Field(default_factory=BriefingJobConfig)
+    export: ExportJobConfig = Field(default_factory=ExportJobConfig)
     startup_notice: bool = True
+
+
+class PacksConfig(BaseModel):
+    """Domain packs (packs/<name>/pack.yaml + SKILL.md) loaded at startup."""
+
+    dir: str = "packs"  # relative to ORBIT_HOME
+    enabled: list[str] = Field(default_factory=list)
 
 
 class RadarConfig(BaseModel):
@@ -149,6 +180,7 @@ class Config(BaseModel):
     jobs: JobsConfig = Field(default_factory=JobsConfig)
     watchers: list[dict[str, Any]] = Field(default_factory=list)
     radar: RadarConfig = Field(default_factory=RadarConfig)
+    packs: PacksConfig = Field(default_factory=PacksConfig)
 
 
 def load_config(path: Path | None = None) -> Config:

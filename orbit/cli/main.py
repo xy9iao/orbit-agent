@@ -154,5 +154,66 @@ def briefing() -> None:
         print(r.json()["briefing"])
 
 
+# ---- data ownership: these open the database directly (they work while the daemon is down) -----------
+
+
+async def _with_db(fn):
+    from orbit.config import Settings
+    from orbit.storage.db import Database
+
+    settings = Settings()
+    config = load_config(settings.orbit_home / "config.yaml")
+    db = Database(settings.database_url)
+    await db.connect()
+    try:
+        await db.migrate()
+        return await fn(db, settings, config)
+    finally:
+        await db.close()
+
+
+@app.command()
+def export(
+    out: str | None = typer.Option(None, "--out", help="Folder to write (default: EXPORT_DIR/manual-<time>)"),
+) -> None:
+    """Write a plain-file snapshot of records, skills, packs, memory, persona, reminders, messages and media."""
+    import asyncio
+    from datetime import datetime
+    from pathlib import Path
+
+    from orbit.export import export_snapshot
+
+    async def run(db, settings, config):
+        target = Path(out) if out else settings.exports_dir / f"manual-{datetime.now():%Y%m%d-%H%M%S}"
+        return target, await export_snapshot(db, settings, config, target)
+
+    target, manifest = asyncio.run(_with_db(run))
+    counts = manifest["counts"]
+    records = ", ".join(f"{k} {v}" for k, v in counts["records"].items()) or "none"
+    print(f"exported to {target}")
+    print(f"records: {records}; reminders {counts['reminders']}, messages {counts['messages']}, "
+          f"media files {counts['media_files']}")
+
+
+@app.command("import")
+def import_(src: str = typer.Argument(..., help="A folder written by `orbit export`")) -> None:
+    """Restore records, skills, missing packs, memory and media from an export (rows already present are skipped)."""
+    import asyncio
+    from pathlib import Path
+
+    from orbit.export import import_snapshot
+
+    try:
+        result = asyncio.run(_with_db(lambda db, settings, config: import_snapshot(db, settings, config, Path(src))))
+    except FileNotFoundError as e:
+        typer.secho(str(e), fg="red")
+        raise typer.Exit(1) from None
+    print(
+        f"imported records {result['records']} (skipped {result['records_skipped']} already present), "
+        f"skills {result['skills']}, packs {result['packs']}, memory lines {result['memory_lines']}, "
+        f"media files {result['media_files']}"
+    )
+
+
 if __name__ == "__main__":
     sys.exit(app())

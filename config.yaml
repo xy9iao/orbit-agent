@@ -51,7 +51,18 @@ jobs:
   briefing:
     enabled: true
     cron: "0 8 * * *"      # every day 08:00 local time
+  # Plain-file snapshot (`orbit export`) + pg_dump into EXPORT_DIR (env, default data/exports/), newest `keep` kept.
+  export:
+    enabled: true
+    cron: "0 3 * * *"
+    keep: 14
   startup_notice: true     # push "Orbit online" to Telegram on start
+
+# Domain packs: packs/<name>/pack.yaml (collections, routines, locked skill sections) + SKILL.md.
+# A pack that fails to load is logged and skipped.
+packs:
+  dir: packs
+  enabled: [fitness, nutrition]
 
 # Polled in-process by APScheduler. Optional keys per watcher: interval_minutes (default 5) and
 # first_run_delay_seconds (first check that long after startup instead of one full interval later).
