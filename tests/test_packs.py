@@ -62,7 +62,7 @@ def ctx(db: Database, packs: dict[str, Pack], memory=None) -> ToolContext:
 def test_repo_packs_load_with_their_collections_routines_and_locks(packs):
     fitness, nutrition = packs["fitness"], packs["nutrition"]
     assert set(fitness.collections) == {"workouts"} and set(nutrition.collections) == {"meals"}
-    assert [r.cron for r in fitness.routines] == ["30 7 * * tue-sun", "0 21 * * sun"]
+    assert [r.cron for r in fitness.routines] == ["30 7 * * *", "0 21 * * *"]
     assert [r.cron for r in nutrition.routines] == ["30 21 * * *"]
     assert fitness.locked_sections == ["[redacted]"]
     assert fitness.schema_version == 1 and nutrition.schema_version == 1
@@ -136,12 +136,14 @@ async def test_add_record_validates_against_the_pack_schema(db, packs):
     row = json.loads(saved)
     assert row["occurred_at"] == "2026-10-20T18:30" and row["data"] == BENCH
 
-    bad = {**BENCH, "day_type": "arms", "sets": [{"weight": "heavy", "unit": "kg", "reps": 8}], "mood": "ok"}
+    bad = {**BENCH, "day_type": "arms", "sets": [{"weight": "heavy", "unit": "kg", "reps": 8}]}
     error = await registry.call("add_record", {"pack": "fitness", "collection": "workouts", "data": bad}, c)
     assert error.startswith("error: data does not match the schema")
     assert "day_type: 'arms' is not one of" in error
     assert "sets.0.weight: 'heavy' is not of type 'number'" in error
-    assert "Additional properties are not allowed ('mood'" in error
+    meal = {"meal": "lunch", "items": [{"name": "x"}], "protein_g": 1, "mood": "ok"}
+    extra = await registry.call("add_record", {"pack": "nutrition", "collection": "meals", "data": meal}, c)
+    assert "Additional properties are not allowed ('mood'" in extra
 
     assert "unknown pack 'yoga'" in await registry.call(
         "add_record", {"pack": "yoga", "collection": "x", "data": {}}, c
@@ -358,9 +360,9 @@ async def test_routines_are_scheduled_in_local_time(db, memory, tmp_path, packs)
     trigger = jobs["routine-fitness-0"].trigger
     assert str(trigger.timezone) == str(scheduler.sched.timezone)
     fields = {f.name: str(f) for f in trigger.fields}
-    assert (fields["hour"], fields["minute"], fields["day_of_week"]) == ("7", "30", "tue-sun")
-    sunday = {f.name: str(f) for f in jobs["routine-fitness-1"].trigger.fields}
-    assert (sunday["hour"], sunday["day_of_week"]) == ("21", "sun")
+    assert (fields["hour"], fields["minute"], fields["day_of_week"]) == ("7", "30", "*")
+    nutrition = {f.name: str(f) for f in jobs["routine-nutrition-0"].trigger.fields}
+    assert (nutrition["hour"], nutrition["minute"]) == ("21", "30")
 
 
 async def test_routine_fire_runs_the_agent_with_the_skill_and_pushes(db, memory, tmp_path, packs):
@@ -385,6 +387,17 @@ async def test_routine_fire_runs_the_agent_with_the_skill_and_pushes(db, memory,
     assert '"sum": 90' in provider.calls[1]["messages"][-1]["content"]
     history = await db.get_history("telegram:42", 10)
     assert history[-1] == {"role": "assistant", "content": orbit.pushed[0]}
+
+
+async def test_routine_that_has_nothing_to_say_pushes_nothing(db, memory, tmp_path, packs):
+    agent, provider = make_agent(db, memory, tmp_path, packs, [Response(text="NO_MESSAGE")])
+    orbit = FakeOrbit(agent, db, packs)
+
+    assert await run_routine(orbit, "fitness", packs["fitness"].routines[1]) == ""
+
+    assert orbit.pushed == []
+    assert await db.get_history("telegram:42", 10) == []
+    assert provider.calls[0]["messages"][1]["content"].endswith("只回复 NO_MESSAGE，不要别的字。）")
 
 
 async def test_routine_without_telegram_still_pushes(db, memory, tmp_path, packs):
