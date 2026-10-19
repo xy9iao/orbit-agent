@@ -107,6 +107,14 @@ def load_pack(pack_dir: Path) -> Pack:
 
     if not (pack_dir / SKILL_FILE).is_file():
         raise PackError(f"{pack_dir / SKILL_FILE} not found")
+    locked = [str(s).strip() for s in raw.get("locked_sections") or []]
+    headings = {
+        line[3:].strip() for line in (pack_dir / SKILL_FILE).read_text(encoding="utf-8").splitlines()
+        if line.startswith("## ")
+    }
+    for section in locked:
+        if section not in headings:  # a typo would leave the real section editable
+            logger.warning("pack '{}': locked section '{}' is not a '## ' heading in SKILL.md", name, section)
     return Pack(
         name=name,
         description=description,
@@ -114,7 +122,7 @@ def load_pack(pack_dir: Path) -> Pack:
         schema_version=schema_version,
         collections={str(k): v for k, v in collections.items()},
         routines=routines,
-        locked_sections=[str(s).strip() for s in raw.get("locked_sections") or []],
+        locked_sections=locked,
     )
 
 

@@ -10,6 +10,8 @@ from orbit.packs import Pack
 
 _HEADING_RE = re.compile(r"^##\s+(.+?)\s*$")
 _ANY_HEADING_RE = re.compile(r"^#{1,2}\s")
+# A section body may start with a marker line ("🔒 锁定", "✏️ agent 可改"); a rewrite keeps it.
+MARKERS = ("🔒", "✏️", "✏")
 
 
 def section_names(text: str) -> list[str]:
@@ -27,6 +29,10 @@ def replace_section(text: str, section: str, new_text: str) -> tuple[str, bool]:
             out.pop()
         return "\n".join([*out, "", f"## {section}", *body]) + "\n", False
     end = next((i for i in range(start + 1, len(lines)) if _HEADING_RE.match(lines[i])), len(lines))
+    marker = next((ln for ln in lines[start + 1 : end] if ln.strip()), "")
+    first_new = next((ln for ln in body if ln.strip()), "")
+    if marker.lstrip().startswith(MARKERS) and not first_new.lstrip().startswith(MARKERS):
+        body = [marker, *body]
     tail = lines[end:]
     return "\n".join([*lines[: start + 1], *body, *([""] if tail else []), *tail]) + "\n", True
 
