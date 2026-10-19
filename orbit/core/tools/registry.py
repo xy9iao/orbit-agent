@@ -20,6 +20,7 @@ from loguru import logger
 if TYPE_CHECKING:
     from orbit.core.memory import MemoryStore
     from orbit.core.router import ModelRouter
+    from orbit.packs import Pack
     from orbit.scheduler.scheduler import OrbitScheduler
     from orbit.storage.db import Database
 
@@ -35,6 +36,7 @@ class ToolContext:
     scheduler: OrbitScheduler | None = None
     extra: dict[str, Any] = field(default_factory=dict)
     router: ModelRouter | None = None  # for tools that need the model (e.g. embeddings); None in bare contexts
+    packs: dict[str, Pack] | None = None  # loaded domain packs (orbit.packs), by name
 
 
 @dataclass

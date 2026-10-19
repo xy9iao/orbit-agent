@@ -3,7 +3,8 @@
 Orbit's call sites speak OpenAI chat format, so this adapter translates both ways:
 - messages: `system` turns become the top-level `system` prompt; an assistant turn with `tool_calls`
   becomes `tool_use` blocks; each `tool` turn becomes a `tool_result` block in a user turn (consecutive
-  results share one turn, as the API requires).
+  results share one turn, as the API requires); user `image_url` parts (data: or https: URLs) become
+  image blocks.
 - assistant turns produced by this provider carry `provider_blocks` (thinking with its signature, text,
   tool_use, in order), which are sent back verbatim: the API requires the thinking blocks of a turn that
   called tools.
@@ -43,6 +44,27 @@ def _text(content: Any) -> str:
     return "".join(part.get("text", "") for part in content if isinstance(part, dict))
 
 
+def _user_blocks(content: Any) -> list[dict[str, Any]]:
+    """User content -> text and image blocks. OpenAI `image_url` parts (data: or https: URLs) become images."""
+    if not isinstance(content, list):
+        text = _text(content)
+        return [{"type": "text", "text": text}] if text else []
+    blocks: list[dict[str, Any]] = []
+    for part in content:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") == "text" and part.get("text"):
+            blocks.append({"type": "text", "text": part["text"]})
+        elif part.get("type") == "image_url":
+            url = (part.get("image_url") or {}).get("url", "")
+            if url.startswith("data:") and ";base64," in url:
+                media_type, data = url[5:].split(";base64,", 1)
+                blocks.append({"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}})
+            elif url:
+                blocks.append({"type": "image", "source": {"type": "url", "url": url}})
+    return blocks
+
+
 def _tool_input(arguments: Any) -> dict[str, Any]:
     if isinstance(arguments, dict):
         return arguments
@@ -76,8 +98,7 @@ def convert_messages(
         if role == "system":
             system_parts.append(_text(msg.get("content")))
         elif role == "user":
-            text = _text(msg.get("content"))
-            add("user", [{"type": "text", "text": text}] if text else [])
+            add("user", _user_blocks(msg.get("content")))
         elif role == "assistant":
             if tool_blocks and msg.get("provider_blocks"):
                 add("assistant", copy.deepcopy(msg["provider_blocks"]))

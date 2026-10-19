@@ -122,6 +122,26 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: When is a batch API the right call instead of concurrent requests?** A: When nobody waits on the answer: a backfill or re-run of hundreds of items. It halves the price and avoids rate-limit juggling, at the cost of latency (minutes to hours, up to 24 h), so the live 30-minute poll keeps using normal requests.
 - **Q: How do you make an asynchronous batch job safe to interrupt?** A: Persist the job id and the inputs' versions before waiting, make the collect step idempotent (it writes only where the content hash still matches, then clears the saved state), and on restart resume the saved job instead of submitting a new one.
 
+## Domain packs (`orbit/packs/`, `orbit/core/tools/packs.py`, `packs/`)
+1. A pack is a folder: `pack.yaml` declares collections as JSON Schemas, cron routines and locked skill sections; `SKILL.md` holds the domain's rules in `## ` sections.
+2. Enabled packs load at startup; a pack with bad YAML, an invalid schema or cron, or no SKILL.md is logged and skipped, so one mistake never takes Orbit down.
+3. All records share one `records` table (JSONB `data` + `schema_version`); the tools validate against the schema and return every violation to the model so it can fix the call.
+4. The chat prompt only lists packs; the model calls `load_skill` when it needs a domain's rules, and `write_skill` rewrites one section (never a locked one), keeping the old file in `.history/`.
+5. Routines run the same tool loop as chat with the pack's skill in the system prompt, and their reply is pushed to Telegram and added to the chat history.
+
+- **Q: Why one JSONB table instead of a table per collection?** A: A new collection becomes a YAML change instead of a migration, and JSON Schema still validates every write in the app. The trade-off is weaker database-level guarantees and query plans, which is fine at personal data scale; a hot collection can still get its own table or an expression index later.
+- **Q: How do you change a record schema without breaking old data?** A: Bump `schema_version`, store the version on every new record, and never rewrite stored rows. Readers branch on the version (or a migration writes new rows from old ones), and the export manifest carries each schema so old files stay interpretable.
+
+## Data export (`orbit/export.py`, `orbit export`, `orbit import`)
+1. A snapshot is plain files: JSONL for rows, Markdown for skills, memory and persona, YAML for pack schemas, the media folder, plus README.md and manifest.json.
+2. The manifest records the export time, Orbit version and git commit, row counts and every collection's schema, so the snapshot explains itself without Orbit's code.
+3. Import is idempotent: records keep their ids (`ON CONFLICT DO NOTHING`, then the id sequence is moved past them), memory lines and media files are only added when missing.
+4. A nightly job writes a dated snapshot plus a `pg_dump` into `EXPORT_DIR` (a host bind mount in Docker) and prunes everything but the newest 14.
+5. The two formats cover two failures: the dump restores the same stack exactly and fast, and the plain files survive a change of database, framework or model.
+
+- **Q: Why both pg_dump and a plain-file export?** A: The dump is exact and quick to restore, but only into Postgres with this schema. The plain files are slower to restore but readable by any tool, so they outlive a change of stack.
+- **Q: How do you make an import idempotent?** A: Give every row a stable identity (here the original id), insert with `ON CONFLICT DO NOTHING`, then reset the sequence past the imported ids; for files, copy only what is missing and back up anything you overwrite.
+
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.

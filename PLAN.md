@@ -113,6 +113,18 @@ Verify commands assume the venv is active (`.venv\Scripts\activate` on Windows) 
 | M7.3 | `deploy/`: `ec2_deploy.sh` (idempotent: install Docker on Amazon Linux 2023, clone or pull the repo, require an existing `.env`, `docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build`, then wait for `/health`), `deploy/docker-compose.prod.yml` (restart policies, log rotation), `deploy/backup.sh` (nightly `pg_dump`), and `deploy/RUNBOOK.md` (instance sizing, security group, first deploy, update, logs, backup/restore, rollback, rotating secrets). Prepared only, never executed. | `deploy/*` | `bash -n deploy/*.sh` (and `shellcheck` if available) | M1.8 |
 | M7.4 | Acceptance pass: go through each acceptance criterion, record evidence (command + output summary) in the PROGRESS log, confirm CI is green on the branch head, and open any remaining gaps as tasks or QUESTIONS. | `PROGRESS.md` | `gh run list --branch radar-mvp --limit 1` shows success | all |
 
+### Packs MVP (added 2026-10-19 at the owner's request, branch packs-mvp)
+
+| ID | Task | Files touched | Verify |
+|---|---|---|---|
+| P1 | Pack loader: `packs/<name>/pack.yaml` + `SKILL.md`, enabled in `config.yaml`, broken packs skipped | `orbit/packs/__init__.py`, `config.yaml` | `pytest tests/test_packs.py` |
+| P2 | `records` table (migration 0003) and record tools with JSON Schema validation and `record_stats` | `orbit/storage/`, `orbit/packs/records.py`, `orbit/core/tools/packs.py` | same |
+| P3 | Skills in the chat prompt, `load_skill`, `write_skill` (one section, locked sections refused, `.history/`) | `orbit/core/agent.py`, `orbit/packs/skills.py` | same |
+| P4 | Pack routines through the full agent loop, pushed to Telegram | `orbit/scheduler/` | same |
+| P5 | Telegram photos saved to `data/media/` and sent to the model as image blocks | `orbit/channels/`, `orbit/core/providers/anthropic.py` | same |
+| P6 | `packs/fitness` and `packs/nutrition` | `packs/` | same |
+| P7 | `orbit export` / `orbit import`, nightly export + pg_dump, export folder bind-mounted | `orbit/export.py`, `orbit/cli/main.py`, `Dockerfile`, `docker-compose.yml` | same, plus `docker compose logs` after a rebuild |
+
 ## Decisions
 
 | Topic | Choice | Reason |

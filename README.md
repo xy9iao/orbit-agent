@@ -194,10 +194,48 @@ orbit reminders                 # pending reminders; `orbit cancel <id>` cancels
 orbit jobs                      # scheduled jobs and their next run
 orbit briefing                  # generate and push today's briefing now
 orbit push "hello"              # push raw text to Telegram, no model
+orbit export / orbit import DIR # plain-file snapshot of your data (works without the daemon)
 ```
 
 These talk to the running daemon over the local API. `orbit radar ...` commands do not need the
 daemon.
+
+## Domain packs: training and meals over Telegram
+
+A pack is a folder, `packs/<name>/`, that teaches Orbit one area of life without new Python code:
+
+- `pack.yaml`: `name`, `description`, `schema_version`, `collections` (name -> JSON Schema of one record),
+  `routines` (`{cron, prompt}`, local time) and `locked_sections` (SKILL.md sections Orbit may not edit).
+- `SKILL.md`: the pack's rules in `## ` sections. Orbit reads it with `load_skill` before working in
+  that area and updates one section with `write_skill` when you correct it (the old file goes to
+  `.history/`; locked sections are refused).
+
+Enabled packs (`packs.enabled` in `config.yaml`) load at startup; a broken pack is logged and skipped.
+The chat prompt lists every pack, and records go into one `records` table (`pack`, `collection`,
+`occurred_at`, `data` JSONB, `schema_version`) through `add_record`, `query_records`, `update_record`,
+`delete_record` and `record_stats` (count/sum/min/max/first/last per day, week, month or field).
+
+Two packs ship today:
+
+| Pack | Collection | Routines |
+|---|---|---|
+| `fitness` | `workouts`: day_type, exercise, sets (weight, unit, reps, rir, assist), pain, energy, notes | 07:30 Tue-Sun: today's plan with last session's numbers. Sun 21:00: weekly summary. |
+| `nutrition` | `meals`: meal, items (name, amount, protein_g, kcal), protein_g, kcal, notes | 21:30 daily: protein vs 140-160 g, one suggestion if short. |
+
+Tell Orbit what you trained or ate ("卧推 80kg 8,8,7 RIR 2", "午饭鸡胸 200 g 加一碗米饭") and it logs it
+and confirms in one line. Photos work too: they are saved under `data/media/YYYY-MM-DD/`, sent to the
+model as an image, and the path goes into the record.
+
+### Your data, outside Orbit
+
+```powershell
+orbit export [--out DIR]   # plain-file snapshot (JSONL, Markdown, YAML) + README.md + manifest.json
+orbit import DIR           # restore records, skills, memory and media; rows already present are skipped
+```
+
+Every night at 03:00 Orbit writes `orbit-YYYY-MM-DD/` plus a `pg_dump` (`orbit-YYYY-MM-DD.dump`) into
+`EXPORT_DIR` and keeps the newest 14. In Docker that folder is bind-mounted to `./exports` on the host
+(`EXPORT_HOST_DIR` changes it). A snapshot needs no Orbit code to read; see its README.md.
 
 ## Internship Radar quick start
 
@@ -326,6 +364,8 @@ orbit/
   core/                  agent loop, model router, providers, tools (@tool registry)
   scheduler/             APScheduler wrapper, briefing job, Watcher base + registry
   storage/               async SQLAlchemy models, Database, Alembic migrations
+  packs/                 domain pack loader, records + stats, SKILL.md section editing
+  export.py              `orbit export` / `orbit import` and the nightly snapshot
   radar/                 Internship Radar
     sources/             Greenhouse, Lever, Ashby adapters + PoliteClient
     repo.py, poll.py     upsert/dedupe/close, per-company poll runs
@@ -335,6 +375,7 @@ orbit/
     pipeline.py, watcher.py, stats.py, cli.py
 tests/                   pytest suite; tests/radar/ for the radar, fixtures/ for recorded API responses
 evals/radar_labels.yaml  extraction eval set (UNVERIFIED drafts)
+packs/                   domain packs: fitness/, nutrition/ (pack.yaml + SKILL.md)
 scripts/                 Task Scheduler install, dev Postgres, SQLite migration, fixture recorder
 deploy/                  EC2 deploy script, prod compose override, backup, runbook
 ```
@@ -345,6 +386,7 @@ deploy/                  EC2 deploy script, prod compose override, backup, runbo
 |---|---|
 | A tool | Write a function in `orbit/core/tools/`, decorate it with `@tool` (schema from type hints and the docstring; a `ctx` parameter receives the `ToolContext`), and import it in `orbit/core/tools/__init__.py`. |
 | A watcher (Gmail, RSS, a web page) | Subclass `Watcher` from `orbit/scheduler/watchers/base.py`, register it with `@register_watcher("name")`, and enable it under `watchers:` in `config.yaml`. Optional hooks: `bind(orbit)`, `on_pushed(event, ok)`, `close()`. |
+| A life domain (sleep, reading, finances) | Add `packs/<name>/pack.yaml` (collections as JSON Schemas, routines, locked sections) and `SKILL.md`, then list it in `packs.enabled`. No code needed. |
 | A channel (Discord, web) | Implement the `Channel` protocol in `orbit/channels/base.py` and register it in `orbit/app.py`. |
 | A job board | Add an adapter in `orbit/radar/sources/` that returns `NormalizedPosting`s, register it in `sources/__init__.py`, add the source name to `RADAR_SOURCES` in `orbit/storage/models.py` plus an Alembic migration for its CHECK constraints, and record a fixture with `scripts/record_fixture.py`. |
 | A model or provider | Edit `config.yaml` only. Changing the embedding model or dimension needs a migration and a re-embed. |

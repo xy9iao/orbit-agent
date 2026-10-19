@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Protocol
 
 
@@ -12,6 +13,7 @@ class Incoming:
     channel: str
     chat_id: str
     text: str
+    images: list[Path] = field(default_factory=list)  # saved photo files, sent to the model as image blocks
 
 
 MessageHandler = Callable[[Incoming], Awaitable[str]]
