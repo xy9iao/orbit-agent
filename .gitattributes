@@ -5,3 +5,4 @@ Dockerfile text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
 docker/*.sql text eol=lf
+scripts/git-hooks/* text eol=lf
