@@ -311,7 +311,7 @@ are the commented alternatives) and `embed` (text-embedding-3-small, 1536 dims) 
 ## Metrics
 
 `orbit radar stats` prints these five metrics. Numbers below are only ones actually observed during
-the build (see the log in [PROGRESS.md](PROGRESS.md)). So far the build has run without an OpenAI
+the build (logged in PROGRESS.md, which stays in the private repo). So far the build has run without an OpenAI
 key or Telegram credentials, so the metrics that need them are still pending.
 
 | Metric | Status |
@@ -408,4 +408,4 @@ deploy/                  EC2 deploy script, prod compose override, backup, runbo
 - [LEARNING.md](LEARNING.md): per-module explanations with interview questions.
 - [deploy/RUNBOOK.md](deploy/RUNBOOK.md): EC2 deploy, update, backup and rollback (prepared, not executed).
 - [evals/radar_labels.yaml](evals/radar_labels.yaml): the extraction eval set and how to review it.
-- [QUESTIONS.md](QUESTIONS.md): open items that need a human (API keys, threshold calibration).
+- [docs/PUBLISHING.md](docs/PUBLISHING.md): how the public mirror is published from the private repo.

@@ -65,7 +65,7 @@ t4g.micro (1 GiB) can work with a swap file, but `docker compose up --build` is 
    TZ=America/Toronto
    # makes plain `docker compose ...` in ~/orbit use the prod override too
    COMPOSE_FILE=docker-compose.yml:deploy/docker-compose.prod.yml
-   # No PROXY_URL on EC2. Inside Docker 127.0.0.1 is the container itself (QUESTIONS.md, M1.8);
+   # No PROXY_URL on EC2. Inside Docker 127.0.0.1 is the container itself;
    # ec2_deploy.sh refuses a loopback PROXY_URL.
    ```
    Then copy it over and lock it down:
