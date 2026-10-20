@@ -19,9 +19,10 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from apscheduler.triggers.cron import CronTrigger
 from jsonschema import Draft202012Validator
 from loguru import logger
+
+from orbit.cron import cron_trigger
 
 PACK_FILE = "pack.yaml"
 SKILL_FILE = "SKILL.md"
@@ -56,7 +57,9 @@ class Pack:
         if collection not in self.collections:
             known = ", ".join(self.collections) or "none"
             raise KeyError(f"pack '{self.name}' has no collection '{collection}' (collections: {known})")
-        return Draft202012Validator(self.collections[collection])
+        # format_checker: a schema's "format: date" is enforced, not just documented
+        schema = self.collections[collection]
+        return Draft202012Validator(schema, format_checker=Draft202012Validator.FORMAT_CHECKER)
 
 
 class PackError(ValueError):
@@ -100,7 +103,7 @@ def load_pack(pack_dir: Path) -> Pack:
         if not isinstance(item, dict) or not item.get("cron") or not item.get("prompt"):
             raise PackError(f"{pack_file}: routines[{i}] needs cron and prompt")
         try:
-            CronTrigger.from_crontab(str(item["cron"]))
+            cron_trigger(str(item["cron"]))
         except ValueError as e:
             raise PackError(f"{pack_file}: routines[{i}] cron {item['cron']!r}: {e}") from None
         routines.append(Routine(cron=str(item["cron"]), prompt=str(item["prompt"]).strip()))
