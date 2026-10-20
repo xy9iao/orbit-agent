@@ -1,0 +1,8 @@
+# Paths scripts/publish_public.sh removes from the public mirror, from every commit.
+# One per line, git filter-repo --paths syntax: a plain path matches that file or directory prefix
+# (end directories with /), "glob:" and "regex:" prefixes are allowed. Blank lines and # comments skipped.
+# Always removed as well, without being listed: private-packs/, packs/fitness/, packs/nutrition/, packs/study/.
+
+# Agent work log and to-do notes for the owner (machine state, local setup, personal action items).
+QUESTIONS.md
+PROGRESS.md
