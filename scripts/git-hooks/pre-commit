@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Refuse a commit whose staged files contain a term from private-packs/.privacy-terms.
+# Install once per clone: git config core.hooksPath scripts/git-hooks
+exec bash "$(git rev-parse --show-toplevel)/scripts/privacy_check.sh" --staged

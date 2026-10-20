@@ -57,6 +57,21 @@ jobs:
       - name: Lint (ruff)
         run: ruff check .
 
+      # The terms list is private (git-ignored), so this only runs when the PRIVACY_TERMS secret
+      # (one term per line) is set and the step can write the file.
+      - name: Privacy check (only when private-packs/.privacy-terms exists)
+        env:
+          PRIVACY_TERMS: ${{ secrets.PRIVACY_TERMS }}
+        run: |
+          if [ -n "$PRIVACY_TERMS" ]; then
+            mkdir -p private-packs && printf '%s\n' "$PRIVACY_TERMS" > private-packs/.privacy-terms
+          fi
+          if [ -f private-packs/.privacy-terms ]; then
+            bash scripts/privacy_check.sh
+          else
+            echo "no private-packs/.privacy-terms: privacy check skipped"
+          fi
+
       - name: Migrate a clean database (alembic upgrade head)
         run: alembic upgrade head
 

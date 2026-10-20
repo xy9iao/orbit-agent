@@ -33,8 +33,8 @@ COPY evals ./evals
 
 # UID 1000 matches the default user on most Linux hosts, so bind-mounted data/, logs/, memory/ stay writable.
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin orbit \
-    && mkdir -p data logs memory exports \
-    && chown -R orbit:orbit data logs memory exports packs
+    && mkdir -p data logs memory exports private-packs \
+    && chown -R orbit:orbit data logs memory exports packs private-packs
 USER orbit
 
 # Recorded in export manifests (.git is not in the build context): GIT_COMMIT=$(git rev-parse HEAD).

@@ -1,0 +1,16 @@
+name: habits
+description: Daily habit tracker. Log check-ins ("did my reading", "skipped the walk today"), show streaks, and nudge in the evening about habits not done yet. Use when the user mentions a habit, a check-in or a streak.
+schema_version: 1
+collections:
+  checkins:
+    type: object
+    required: [habit, done]
+    properties:
+      habit: {type: string, minLength: 1}
+      done: {type: boolean}
+      note: {type: string}
+routines:
+  - id: evening_checkin
+    cron: "0 21 * * *"
+    prompt: Use query_records to list today's habits checkins and compare them with the list in "Habits". If every habit has a check-in, reply NO_MESSAGE. Otherwise name the habits still open in one line and ask whether they happened today.
+locked_sections: [Habits]

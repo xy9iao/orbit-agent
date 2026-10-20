@@ -3,7 +3,8 @@
 Layout of a snapshot folder (readable with any JSON/Markdown tool, no Orbit code needed):
 
     README.md                          what each file is
-    manifest.json                      export time, Orbit version and git commit, row counts, schemas
+    manifest.json                      export time, Orbit version and git commit, row counts, schemas,
+                                       and which root (public or private) each pack came from
     records/<pack>/<collection>.jsonl  one record per line: id, occurred_at, created_at, schema_version, data
     skills/<pack>/SKILL.md             each pack's skill file
     packs/<pack>/pack.yaml             each pack's definition (the JSON Schemas of its collections)
@@ -13,7 +14,8 @@ Layout of a snapshot folder (readable with any JSON/Markdown tool, no Orbit code
     reminders.jsonl, messages.jsonl    reminders and the chat history
     media/YYYY-MM-DD/...               photos received over Telegram (records reference data/media/...)
 
-Import restores records (same ids), skills, packs that are missing locally, the skill change log, memory
+Import restores records (same ids), skills, packs that are missing locally (into the root they came
+from; the private root when the export does not say), the skill change log, memory
 and media. It is idempotent: rows and change-log entries whose id already exists, memory lines already
 present and files already on disk are skipped.
 """
@@ -37,7 +39,7 @@ from sqlalchemy.engine import make_url
 
 from orbit import __version__
 from orbit.config import Config, Settings
-from orbit.packs import PACK_FILE, SKILL_FILE, skills
+from orbit.packs import PACK_FILE, SKILL_FILE, pack_dirs, skills
 from orbit.storage.db import Database
 from orbit.storage.models import Message, Record, Reminder
 
@@ -104,16 +106,11 @@ async def _table_rows(db: Database, model: Any) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
-def _pack_dirs(packs_dir: Path) -> list[Path]:
-    if not packs_dir.is_dir():
-        return []
-    return sorted(p for p in packs_dir.iterdir() if (p / PACK_FILE).is_file())
-
-
 async def export_snapshot(db: Database, settings: Settings, config: Config, out: Path) -> dict[str, Any]:
     """Write a full snapshot into `out` (created; existing files are overwritten). Returns the manifest."""
     out.mkdir(parents=True, exist_ok=True)
-    packs_dir = settings.packs_path(config.packs)
+    roots = settings.pack_roots(config.packs)
+    private_root = settings.private_packs_path
     counts: dict[str, Any] = {"records": {}}
 
     records = await _table_rows(db, Record)
@@ -127,7 +124,9 @@ async def export_snapshot(db: Database, settings: Settings, config: Config, out:
         counts["records"][f"{pack}/{collection}"] = n
 
     schemas: dict[str, Any] = {}
-    for pack_dir in _pack_dirs(packs_dir):
+    pack_roots: dict[str, str] = {}
+    for pack_dir in pack_dirs(roots).values():
+        pack_roots[pack_dir.name] = "private" if pack_dir.parent == private_root else "public"
         (out / "packs" / pack_dir.name).mkdir(parents=True, exist_ok=True)
         shutil.copy2(pack_dir / PACK_FILE, out / "packs" / pack_dir.name / PACK_FILE)
         if (pack_dir / SKILL_FILE).is_file():
@@ -170,6 +169,7 @@ async def export_snapshot(db: Database, settings: Settings, config: Config, out:
         "git_commit": git_commit(settings.orbit_home),
         "counts": counts,
         "schemas": schemas,
+        "pack_roots": pack_roots,
     }
     (out / "manifest.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     (out / "README.md").write_text(README, encoding="utf-8")
@@ -226,15 +226,25 @@ async def import_snapshot(db: Database, settings: Settings, config: Config, src:
             )
     result["records_skipped"] = len(rows) - result["records"]
 
-    packs_dir = settings.packs_path(config.packs)
+    roots = settings.pack_roots(config.packs)
+    exported_roots = json.loads((src / "manifest.json").read_text(encoding="utf-8")).get("pack_roots") or {}
+
+    def home_of(name: str) -> Path:
+        """Where a pack lives here, else where it came from (public only when the export says so)."""
+        local = pack_dirs(roots).get(name)
+        if local is not None:
+            return local
+        public = exported_roots.get(name) == "public"
+        return (settings.packs_path(config.packs) if public else settings.private_packs_path) / name
+
     for pack_file in sorted((src / "packs").glob(f"*/{PACK_FILE}")):
-        target = packs_dir / pack_file.parent.name / PACK_FILE
+        target = home_of(pack_file.parent.name) / PACK_FILE
         if not target.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(pack_file, target)
             result["packs"] += 1
     for skill_file in sorted((src / "skills").glob(f"*/{SKILL_FILE}")):
-        target = packs_dir / skill_file.parent.name / SKILL_FILE
+        target = home_of(skill_file.parent.name) / SKILL_FILE
         new = skill_file.read_text(encoding="utf-8")
         if target.exists() and target.read_text(encoding="utf-8") == new:
             continue

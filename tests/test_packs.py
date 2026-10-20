@@ -27,7 +27,7 @@ from orbit.scheduler.jobs.routines import run_routine
 from orbit.scheduler.scheduler import OrbitScheduler
 from orbit.storage.db import Database
 from orbit.storage.models import Record
-from tests.conftest import ROOT, FakeProvider, make_config, tool_call_response
+from tests.conftest import FIXTURE_PACKS, ROOT, FakeProvider, make_config, tool_call_response
 
 BENCH = {
     "day_type": "chest",
@@ -44,7 +44,7 @@ BENCH = {
 def packs_dir(tmp_path: Path) -> Path:
     """A copy of the repo's packs, so skill writes never touch the real files."""
     target = tmp_path / "packs"
-    shutil.copytree(ROOT / "packs", target, ignore=shutil.ignore_patterns(".history"))
+    shutil.copytree(FIXTURE_PACKS, target, ignore=shutil.ignore_patterns(".history"))
     return target
 
 
@@ -120,7 +120,7 @@ def test_broken_pack_is_logged_and_skipped(packs_dir: Path, mutate, reason, capl
     assert list(loaded) == ["fitness", "nutrition"]
     errors = [m for m in caplog_loguru if "pack 'broken' failed to load" in m]
     assert errors and reason in errors[0]
-    assert any("pack 'missing' failed to load" in m for m in caplog_loguru)
+    assert any("pack 'missing' not found in" in m for m in caplog_loguru)
 
 
 @pytest.fixture
@@ -302,7 +302,7 @@ def test_write_skill_refuses_locked_sections_and_headings(packs):
 
 def test_load_skill_tool_returns_skill_md(packs):
     c = ToolContext(channel="cli", chat_id="local", db=None, memory=None, packs=packs)
-    expected = (ROOT / "packs" / "nutrition" / "SKILL.md").read_text(encoding="utf-8")
+    expected = (FIXTURE_PACKS / "nutrition" / "SKILL.md").read_text(encoding="utf-8")
     assert registry_call_sync("load_skill", {"pack": "nutrition"}, c) == expected
 
 
@@ -348,7 +348,7 @@ async def test_system_prompt_lists_packs_and_logging_rules(db, memory, tmp_path,
     for pack in packs.values():
         assert f"- {pack.name}: {pack.description}" in system
     assert "add_record" in system and "write_skill" in system and "load_skill" in system
-    assert "## [redacted]" not in system  # skills load on demand, not in every prompt
+    assert "## 记录格式" not in system  # skills load on demand, not in every prompt
     names = {t["function"]["name"] for t in provider.calls[0]["tools"]}
     assert {"add_record", "query_records", "update_record", "delete_record", "record_stats", "load_skill",
             "write_skill"} <= names

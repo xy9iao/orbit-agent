@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     orbit_api_port: int | None = None
     # Nightly plain-file snapshots (`orbit export`); relative paths are under ORBIT_HOME.
     export_dir: Path = Path("data/exports")
+    # Packs that stay out of git (env ORBIT_PRIVATE_PACKS); relative paths are under ORBIT_HOME.
+    orbit_private_packs: Path = Path("private-packs")
 
     @property
     def data_dir(self) -> Path:
@@ -67,8 +69,19 @@ class Settings(BaseSettings):
         return self.export_dir if self.export_dir.is_absolute() else self.orbit_home / self.export_dir
 
     def packs_path(self, packs: PacksConfig) -> Path:
+        """The public pack root (in git)."""
         path = Path(packs.dir)
         return path if path.is_absolute() else self.orbit_home / path
+
+    @property
+    def private_packs_path(self) -> Path:
+        """The private pack root (git-ignored); a pack here overrides a public one with the same name."""
+        path = self.orbit_private_packs
+        return path if path.is_absolute() else self.orbit_home / path
+
+    def pack_roots(self, packs: PacksConfig) -> list[Path]:
+        """Pack roots, lowest precedence first: public, then private."""
+        return [self.packs_path(packs), self.private_packs_path]
 
     def api_bind(self, api: ApiConfig) -> tuple[str, int]:
         """Host and port the local API listens on: env overrides first, then config.yaml."""

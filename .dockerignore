@@ -12,6 +12,8 @@ venv
 data
 logs
 memory
+# Personal packs are bind-mounted at run time, never baked into the image.
+private-packs
 tests
 scripts
 docs

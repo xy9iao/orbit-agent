@@ -1,11 +1,14 @@
-"""Domain packs: a folder per life domain (fitness, nutrition, ...) that Orbit loads at startup.
+"""Domain packs: a folder per life domain (habits, fitness, ...) that Orbit loads at startup.
 
-packs/<name>/pack.yaml
+Packs live in two roots: packs/ (in git, public examples) and a private root (ORBIT_PRIVATE_PACKS,
+default private-packs/, git-ignored). A private pack overrides a public one with the same name.
+
+<root>/<name>/pack.yaml
     name, description, schema_version
     collections: {<collection>: <JSON Schema for one record's data>}
     routines:    [{cron, prompt}]   run through the agent with the pack's skill, reply pushed to Telegram
     locked_sections: [<SKILL.md "## " heading>]   write_skill refuses these
-packs/<name>/SKILL.md
+<root>/<name>/SKILL.md
     the pack's instructions, one "## " section per topic; loaded on demand with load_skill
 
 A pack that fails to load (missing file, bad YAML, invalid schema or cron) is logged and skipped; the
@@ -129,12 +132,35 @@ def load_pack(pack_dir: Path) -> Pack:
     )
 
 
-def load_packs(packs_dir: Path, enabled: list[str]) -> dict[str, Pack]:
-    """Load every enabled pack; a broken one logs an error and is skipped."""
+def _roots(roots: Path | list[Path]) -> list[Path]:
+    return [roots] if isinstance(roots, Path) else list(roots)
+
+
+def pack_dirs(roots: Path | list[Path]) -> dict[str, Path]:
+    """Every pack folder (one with a pack.yaml) by name; a later root wins over an earlier one."""
+    found: dict[str, Path] = {}
+    for root in _roots(roots):
+        if root.is_dir():
+            found.update({p.name: p for p in sorted(root.iterdir()) if (p / PACK_FILE).is_file()})
+    return dict(sorted(found.items()))
+
+
+def load_packs(roots: Path | list[Path], enabled: list[str]) -> dict[str, Pack]:
+    """Load every enabled pack from the roots (lowest precedence first: public, then private).
+
+    A broken or missing pack logs an error and is skipped.
+    """
+    roots = _roots(roots)
     packs: dict[str, Pack] = {}
     for name in enabled:
+        candidates = [root / name for root in roots if (root / name / PACK_FILE).is_file()]
+        if not candidates:
+            logger.error("pack '{}' not found in {} and is skipped", name, " or ".join(str(r) for r in roots))
+            continue
+        if len(candidates) > 1:
+            logger.info("pack '{}': {} overrides {}", name, candidates[-1], candidates[0])
         try:
-            packs[name] = load_pack(packs_dir / name)
+            packs[name] = load_pack(candidates[-1])
         except Exception as e:  # noqa: BLE001 - one broken pack must not stop Orbit
             logger.error("pack '{}' failed to load and is skipped: {}", name, _first_line(e))
     if packs:
