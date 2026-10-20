@@ -11,3 +11,4 @@ memory/
 exports/
 packs/*/.history/
 .pytest_cache/
+.vscode/
