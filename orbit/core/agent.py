@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import base64
 import mimetypes
+from collections import deque
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
 from orbit.config import AgentConfig
+from orbit.core.incognito import INCOGNITO_TOOLS, PROMPT as INCOGNITO_PROMPT
 from orbit.core.memory import MemoryStore
 from orbit.core.router import ModelRouter
 from orbit.core.tools.registry import ToolContext, ToolRegistry
@@ -34,10 +36,13 @@ NO_MESSAGE = "NO_MESSAGE"
 ROUTINE_SUFFIX = f"\n\n（如果按这个任务的要求现在不需要给用户发消息，只回复 {NO_MESSAGE}，不要别的字。）"
 
 
-def image_part(path: Path) -> dict[str, Any]:
-    """An OpenAI-format image content part with the file inlined as a data URL."""
-    mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-    data = base64.b64encode(path.read_bytes()).decode("ascii")
+def image_part(image: Path | bytes) -> dict[str, Any]:
+    """An OpenAI-format image content part inlined as a data URL (a saved file, or JPEG bytes held in memory)."""
+    if isinstance(image, bytes):
+        mime, raw = "image/jpeg", image  # Telegram photos are always JPEG
+    else:
+        mime, raw = mimetypes.guess_type(image.name)[0] or "image/jpeg", image.read_bytes()
+    data = base64.b64encode(raw).decode("ascii")
     return {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}}
 
 
@@ -102,9 +107,14 @@ class Agent:
             packs=self.packs,
         )
 
-    async def _loop(self, messages: list[dict[str, Any]], ctx: ToolContext) -> str:
-        """Model <-> tools until the model answers without a tool call (or max_tool_rounds is hit)."""
-        tools = self.registry.schemas() or None
+    async def _loop(
+        self, messages: list[dict[str, Any]], ctx: ToolContext, allow: frozenset[str] | None = None
+    ) -> str:
+        """Model <-> tools until the model answers without a tool call (or max_tool_rounds is hit).
+
+        With `allow` (incognito) only those tools are offered and callable, and tool arguments are not logged.
+        """
+        tools = self.registry.schemas(allow) or None
         try:
             for _ in range(self.config.max_tool_rounds):
                 resp = await self.router.complete("chat", messages, tools=tools)
@@ -112,8 +122,11 @@ class Agent:
                     return resp.text
                 messages.append(resp.assistant_message())
                 for tc in resp.tool_calls:
-                    logger.info("tool call: {}({})", tc.name, tc.arguments)
-                    result = await self.registry.call(tc.name, tc.arguments, ctx)
+                    if allow is None:
+                        logger.info("tool call: {}({})", tc.name, tc.arguments)
+                    else:
+                        logger.info("tool call: {} (incognito)", tc.name)
+                    result = await self.registry.call(tc.name, tc.arguments, ctx, allow)
                     messages.append({"role": "tool", "tool_call_id": tc.id, "content": result})
             resp = await self.router.complete("chat", messages)  # no tools: force a final answer
             return resp.text
@@ -121,13 +134,28 @@ class Agent:
             logger.exception("agent error")
             return f"出错了：{type(e).__name__}: {e}"
 
-    async def handle(self, channel: str, chat_id: str, text: str, images: list[Path] | None = None) -> str:
-        """One user turn. `images` (saved photo files) go to the model as image blocks; history keeps text."""
-        session = self.session_key(channel, chat_id)
-        history = await self.db.get_history(session, self.config.history_turns)
-        await self.db.add_message(session, "user", text)
+    async def handle(
+        self,
+        channel: str,
+        chat_id: str,
+        text: str,
+        images: list[Path | bytes] | None = None,
+        incognito: deque[dict[str, Any]] | None = None,
+    ) -> str:
+        """One user turn. `images` go to the model as image blocks; history keeps the text only.
 
-        messages: list[dict[str, Any]] = [{"role": "system", "content": self.system_prompt()}]
+        With `incognito` (that chat's in-memory buffer) nothing is written to the database: the turn is
+        appended to the buffer instead, and only read-only tools are available.
+        """
+        session = self.session_key(channel, chat_id)
+        if incognito is not None:
+            history = list(incognito)
+        else:
+            history = await self.db.get_history(session, self.config.history_turns)
+            await self.db.add_message(session, "user", text)
+
+        system = self.system_prompt(INCOGNITO_PROMPT if incognito is not None else None)
+        messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
         messages += history
         if images:
             content: list[dict[str, Any]] = [{"type": "text", "text": text}] if text else []
@@ -136,8 +164,12 @@ class Agent:
         else:
             messages.append({"role": "user", "content": text})
 
-        reply = (await self._loop(messages, self._context(channel, chat_id))).strip() or "（没有内容）"
-        await self.db.add_message(session, "assistant", reply)
+        allow = INCOGNITO_TOOLS if incognito is not None else None
+        reply = (await self._loop(messages, self._context(channel, chat_id), allow)).strip() or "（没有内容）"
+        if incognito is not None:
+            incognito.extend([{"role": "user", "content": text}, {"role": "assistant", "content": reply}])
+        else:
+            await self.db.add_message(session, "assistant", reply)
         return reply
 
     async def run_routine(self, pack: str, prompt: str, channel: str, chat_id: str) -> str:

@@ -14,6 +14,8 @@ class Incoming:
     chat_id: str
     text: str
     images: list[Path] = field(default_factory=list)  # saved photo files, sent to the model as image blocks
+    # Photos as received, (name, JPEG bytes): OrbitApp saves them, or keeps them in memory when incognito.
+    photos: list[tuple[str, bytes]] = field(default_factory=list)
 
 
 MessageHandler = Callable[[Incoming], Awaitable[str]]
