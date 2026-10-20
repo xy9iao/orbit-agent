@@ -57,7 +57,7 @@ class OrbitApp:
         self.db_ping_timeout = 2.0  # seconds; /health must answer even when Postgres hangs
         self.memory = MemoryStore(self.settings.memory_dir)
         self.router = ModelRouter.from_config(self.config, self.settings, usage_sink=self._record_usage)
-        self.packs = load_packs(self.settings.packs_path(self.config.packs), self.config.packs.enabled)
+        self.packs = load_packs(self.settings.pack_roots(self.config.packs), self.config.packs.enabled)
         self.agent = Agent(
             self.config.agent, self.router, registry, self.memory, self.db, self.settings.persona_dir, self.packs
         )

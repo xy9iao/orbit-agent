@@ -43,6 +43,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://orbit:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/orbit
     # Port stays as in the base file: 127.0.0.1:${ORBIT_PORT:-8765} only, reach it through an SSH tunnel.
     mem_limit: 768m
+    # Same mounts as the base file; listed so the prod host is known to need ./private-packs too
+    # (copy it over with scp: it is git-ignored, so `git pull` never brings it).
+    volumes:
+      - ./private-packs:/app/private-packs
     # STOPSIGNAL SIGINT lets Orbit stop the scheduler, channels and DB pool; allow it 30 s.
     stop_grace_period: 30s
     logging: *logging

@@ -162,6 +162,16 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: Why refuse a revert when the section changed later, instead of just writing the old text?** A: Writing it would silently drop the later edit. Requiring reverts in reverse order is the same rule as `git revert` conflicts: only undo a change whose result is still what is on disk.
 - **Q: Why an append-only JSONL file and not a table?** A: Skills are files, not database rows; the log lives next to them, is readable with `grep`/`jq` without Orbit, and is copied into the export as-is. Append-only means a crash mid-write loses at most the last line.
 
+## Public and private packs (`Settings.pack_roots`, `load_packs`, `scripts/privacy_check.sh`)
+1. Packs load from `packs/` (public, in git) and `private-packs/` (env `ORBIT_PRIVATE_PACKS`, git-ignored); a private pack with the same name wins.
+2. A pack missing from both roots is logged and skipped, so a fresh clone without private data still starts.
+3. Export records which root each pack came from; import puts it back there, and into the private root when unsure.
+4. Tests use neutral fixture packs, so CI never needs the private ones.
+5. `privacy_check.sh` fails on tracked or staged files containing a term from `private-packs/.privacy-terms`; it runs as a pre-commit hook.
+
+- **Q: Why a second directory instead of a private branch or submodule?** A: The private content changes daily and is edited by Orbit itself; a plain git-ignored folder needs no git operations, keeps one code path, and is mounted into Docker like other runtime data. A submodule would still need a private remote and careful syncing.
+- **Q: Does deleting a file and adding it to .gitignore make a repo safe to publish?** A: No. The file is still in every earlier commit. You either publish a fresh repository from the cleaned tree or rewrite history (git filter-repo) and force-push, and treat anything already pushed publicly as leaked.
+
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.

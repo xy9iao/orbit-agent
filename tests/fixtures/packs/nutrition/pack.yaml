@@ -1,0 +1,28 @@
+name: nutrition
+description: Test fixture. Meal log and estimates.
+schema_version: 1
+collections:
+  meals:
+    type: object
+    required: [meal, items, protein_g]
+    properties:
+      meal: {type: string, enum: [breakfast, lunch, dinner, snack]}
+      items:
+        type: array
+        minItems: 1
+        items:
+          type: object
+          required: [name]
+          properties:
+            name: {type: string}
+            amount: {type: string}
+            protein_g: {type: number}
+            kcal: {type: number}
+      protein_g: {type: number}
+      kcal: {type: number}
+      notes: {type: string}
+routines:
+  - id: protein_check
+    cron: "30 21 * * *"
+    prompt: Sum today's meals and compare with the daily target.
+locked_sections: [每日摄入, 不建议吃]

@@ -15,10 +15,10 @@ from orbit.core.tools.registry import ToolContext
 from orbit.cron import cron_trigger, crontab_weekdays
 from orbit.packs import Pack, load_pack, load_packs, records, skills
 from orbit.scheduler.scheduler import OrbitScheduler
-from tests.conftest import ROOT
+from tests.conftest import FIXTURE_PACKS
 from tests.test_packs import FakeOrbit, make_agent
 
-STUDY = ROOT / "packs" / "study"
+STUDY = FIXTURE_PACKS / "study"
 BLOCKS = {"date": "2026-10-20", "blocks": 3, "target": 3, "courses": ["CS341", "CS350"],
           "kinds": ["catchup", "assignment"], "energy": 4}
 
@@ -26,7 +26,7 @@ BLOCKS = {"date": "2026-10-20", "blocks": 3, "target": 3, "courses": ["CS341", "
 @pytest.fixture
 def packs(tmp_path: Path) -> dict[str, Pack]:
     """A copy of the repo's packs, so skill writes never touch the real files."""
-    shutil.copytree(ROOT / "packs", tmp_path / "packs", ignore=shutil.ignore_patterns(".history"))
+    shutil.copytree(FIXTURE_PACKS, tmp_path / "packs", ignore=shutil.ignore_patterns(".history"))
     return load_packs(tmp_path / "packs", ["fitness", "nutrition", "study"])
 
 

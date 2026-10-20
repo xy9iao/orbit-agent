@@ -22,6 +22,8 @@ from orbit.storage.migrate import upgrade_head
 from orbit.storage.models import Base
 
 ROOT = Path(__file__).resolve().parent.parent
+# Stand-ins for the owner's private packs (fitness, nutrition, study); see tests/fixtures/packs/README.md.
+FIXTURE_PACKS = ROOT / "tests" / "fixtures" / "packs"
 
 
 def fake_embedding(text: str, dim: int = 1536) -> list[float]:

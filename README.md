@@ -205,9 +205,12 @@ only message lengths. `/incognito off` ends it, and 30 minutes of silence ends i
 These talk to the running daemon over the local API. `orbit radar ...` commands do not need the
 daemon.
 
-## Domain packs: training, meals and study over Telegram
+## Domain packs
 
-A pack is a folder, `packs/<name>/`, that teaches Orbit one area of life without new Python code:
+A pack is a folder, `<root>/<name>/`, that teaches Orbit one area of life without new Python code
+(how to write one: [docs/PACKS.md](docs/PACKS.md)). There are two roots: `packs/` is in git and holds
+public examples; `private-packs/` (env `ORBIT_PRIVATE_PACKS`, git-ignored, bind-mounted in Docker like
+`data/`) holds your own. A private pack overrides a public one with the same name.
 
 - `pack.yaml`: `name`, `description`, `schema_version`, `collections` (name -> JSON Schema of one record),
   `routines` (`{cron, prompt}`, local time) and `locked_sections` (SKILL.md sections Orbit may not edit).
@@ -218,22 +221,16 @@ A pack is a folder, `packs/<name>/`, that teaches Orbit one area of life without
   to undo one change (`revert_skill_change`).
 - `routines` crons are standard crontab: `0 19 * * 1,3` is Monday and Wednesday, `0`/`7` is Sunday.
 
-Packs in the repo: `fitness` (workouts), `nutrition` (meals) and `study` (daily study blocks and
-per-lecture status; preview reminder Mon/Wed 19:00, weekly review Sun 20:00).
+The repo ships one example, `habits` (collection `checkins`: habit, done, note; a 21:00 check-in that
+names the habits still open, or sends nothing). Add it to `packs.enabled` to try it.
 
 Enabled packs (`packs.enabled` in `config.yaml`) load at startup; a broken pack is logged and skipped.
 The chat prompt lists every pack, and records go into one `records` table (`pack`, `collection`,
 `occurred_at`, `data` JSONB, `schema_version`) through `add_record`, `query_records`, `update_record`,
 `delete_record` and `record_stats` (count/sum/min/max/first/last per day, week, month or field).
 
-Two packs ship today:
-
-| Pack | Collection | Routines |
-|---|---|---|
-| `fitness` | `workouts`: day_type, exercise, sets (weight, unit, reps, rir, assist), pain, energy, notes | 07:30 daily: today's day in the 6+1 cycle (or rest) with last session's numbers and targets. 21:00 daily: a cycle summary, sent only on the day a cycle ends. |
-| `nutrition` | `meals`: meal, items (name, amount, protein_g, kcal), protein_g, kcal, notes | 21:30 daily: protein vs 140-160 g, one suggestion if short. |
-
-Tell Orbit what you trained or ate ("卧推 80kg 8,8,7 RIR 2", "午饭鸡胸 200 g 加一碗米饭") and it logs it
+Typical private packs track workouts, meals or study time. Tell Orbit what you did ("read 20 minutes",
+"bench 60 kg 3x8", "lunch: rice and chicken") and it logs a record that matches the collection schema
 and confirms in one line. A routine with nothing to say that day answers `NO_MESSAGE` and nothing is
 pushed. Photos work too: they are saved under `data/media/YYYY-MM-DD/`, sent to the
 model as an image, and the path goes into the record.
@@ -387,7 +384,8 @@ orbit/
     pipeline.py, watcher.py, stats.py, cli.py
 tests/                   pytest suite; tests/radar/ for the radar, fixtures/ for recorded API responses
 evals/radar_labels.yaml  extraction eval set (UNVERIFIED drafts)
-packs/                   domain packs: fitness/, nutrition/ (pack.yaml + SKILL.md)
+packs/                   public example packs: habits/ (pack.yaml + SKILL.md)
+private-packs/           your own packs (git-ignored)
 scripts/                 Task Scheduler install, dev Postgres, SQLite migration, fixture recorder
 deploy/                  EC2 deploy script, prod compose override, backup, runbook
 ```

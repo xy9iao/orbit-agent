@@ -49,6 +49,8 @@ services:
       - ./data:/app/data
       - ./logs:/app/logs
       - ./packs:/app/packs
+      # Personal packs (git-ignored), like data/: mounted, never copied into the image.
+      - ./private-packs:/app/private-packs
       - ${EXPORT_HOST_DIR:-./exports}:/app/exports
     healthcheck:
       # The slim image has no curl. urlopen raises on HTTP 503 (db down), so the check fails then too.

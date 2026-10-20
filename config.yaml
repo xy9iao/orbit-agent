@@ -58,8 +58,10 @@ jobs:
     keep: 14
   startup_notice: true     # push "Orbit online" to Telegram on start
 
-# Domain packs: packs/<name>/pack.yaml (collections, routines, locked skill sections) + SKILL.md.
-# A pack that fails to load is logged and skipped.
+# Domain packs: <root>/<name>/pack.yaml (collections, routines, locked skill sections) + SKILL.md.
+# Roots: `dir` (public, in git) and ORBIT_PRIVATE_PACKS (default private-packs/, git-ignored); a private
+# pack overrides a public one with the same name. See docs/PACKS.md. A pack that is missing or fails to
+# load is logged and skipped, so a fresh clone without private-packs/ still starts (try `habits`).
 packs:
   dir: packs
   enabled: [fitness, nutrition, study]

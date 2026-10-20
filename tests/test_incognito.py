@@ -17,7 +17,7 @@ from orbit.core.router import ModelRouter
 from orbit.packs import load_packs
 from orbit.storage.db import Database
 from orbit.storage.models import Record
-from tests.conftest import ROOT, FakeProvider, tool_call_response
+from tests.conftest import FIXTURE_PACKS, FakeProvider, tool_call_response
 from tests.test_health import make_app
 
 SECRET = "photosynthesis-question-xyz"
@@ -28,7 +28,7 @@ def app_and_model(tmp_path: Path, db: Database) -> tuple[OrbitApp, FakeProvider]
     app = make_app(tmp_path, db)
     provider = FakeProvider("openai")
     app.agent.router = ModelRouter(app.config, {"openai": provider, "cheap": provider})
-    shutil.copytree(ROOT / "packs", tmp_path / "packs", ignore=shutil.ignore_patterns(".history"))
+    shutil.copytree(FIXTURE_PACKS, tmp_path / "packs", ignore=shutil.ignore_patterns(".history"))
     app.agent.packs = load_packs(tmp_path / "packs", ["fitness", "nutrition"])
     return app, provider
 

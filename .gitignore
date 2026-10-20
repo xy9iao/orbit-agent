@@ -12,3 +12,4 @@ exports/
 packs/*/.history/
 .pytest_cache/
 .vscode/
+private-packs/
