@@ -64,6 +64,7 @@ class OrbitApp:
         self.incognito = incognito.IncognitoSessions(lambda: self.db, history_turns=self.config.agent.history_turns)
         self.scheduler = OrbitScheduler(self)
         self.agent.scheduler = self.scheduler
+        self.agent.skill_changes = self.settings.skill_changes_path
         self.channels: dict[str, Channel] = {}
         self._stop = asyncio.Event()
 

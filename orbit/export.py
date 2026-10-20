@@ -7,14 +7,15 @@ Layout of a snapshot folder (readable with any JSON/Markdown tool, no Orbit code
     records/<pack>/<collection>.jsonl  one record per line: id, occurred_at, created_at, schema_version, data
     skills/<pack>/SKILL.md             each pack's skill file
     packs/<pack>/pack.yaml             each pack's definition (the JSON Schemas of its collections)
+    skill_changes.jsonl                every write_skill edit: id, time, pack, section, reason, old, new
     memory/MEMORY.md                   long-term memory
     persona/                           system prompt and job skills
     reminders.jsonl, messages.jsonl    reminders and the chat history
     media/YYYY-MM-DD/...               photos received over Telegram (records reference data/media/...)
 
-Import restores records (same ids), skills, packs that are missing locally, memory and media. It is
-idempotent: rows whose id already exists, memory lines already present and files already on disk are
-skipped.
+Import restores records (same ids), skills, packs that are missing locally, the skill change log, memory
+and media. It is idempotent: rows and change-log entries whose id already exists, memory lines already
+present and files already on disk are skipped.
 """
 
 from __future__ import annotations
@@ -36,7 +37,7 @@ from sqlalchemy.engine import make_url
 
 from orbit import __version__
 from orbit.config import Config, Settings
-from orbit.packs import PACK_FILE, SKILL_FILE
+from orbit.packs import PACK_FILE, SKILL_FILE, skills
 from orbit.storage.db import Database
 from orbit.storage.models import Message, Record, Reminder
 
@@ -54,6 +55,8 @@ Markdown, so it can be read without Orbit.
   the collection schema of its `schema_version`; `occurred_at` is local time, ISO 8601.
 - `packs/<pack>/pack.yaml`: the pack definitions (collections, routines, locked skill sections).
 - `skills/<pack>/SKILL.md`: the instructions Orbit follows for each pack.
+- `skill_changes.jsonl`: every edit Orbit made to a skill file (id, time, pack, section, reason, and the
+  section's old and new text; old is null when the edit added the section).
 - `memory/MEMORY.md`: long-term memory, one fact per line.
 - `persona/`: Orbit's system prompt and job skills.
 - `reminders.jsonl`, `messages.jsonl`: reminders and the conversation history.
@@ -139,6 +142,11 @@ async def export_snapshot(db: Database, settings: Settings, config: Config, out:
         except yaml.YAMLError as e:
             schemas[pack_dir.name] = {"error": f"pack.yaml is not valid YAML: {e}"}
 
+    changes = skills.read_changes(settings.skill_changes_path)
+    counts["skill_changes"] = len(changes)
+    if changes:
+        shutil.copy2(settings.skill_changes_path, out / skills.CHANGES_FILE)
+
     memory_file = settings.memory_dir / "MEMORY.md"
     if memory_file.is_file():
         (out / "memory").mkdir(exist_ok=True)
@@ -187,7 +195,10 @@ async def import_snapshot(db: Database, settings: Settings, config: Config, src:
     """Restore records, skills, missing packs, memory and media from a snapshot. Idempotent."""
     if not (src / "manifest.json").is_file():
         raise FileNotFoundError(f"{src} is not an Orbit export (no manifest.json)")
-    result = {"records": 0, "records_skipped": 0, "skills": 0, "packs": 0, "memory_lines": 0, "media_files": 0}
+    result = {
+        "records": 0, "records_skipped": 0, "skills": 0, "packs": 0, "skill_changes": 0, "memory_lines": 0,
+        "media_files": 0,
+    }
 
     rows: list[dict[str, Any]] = []
     for path in sorted((src / "records").glob("*/*.jsonl")):
@@ -234,6 +245,12 @@ async def import_snapshot(db: Database, settings: Settings, config: Config, src:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(new, encoding="utf-8", newline="\n")
         result["skills"] += 1
+
+    have = {int(c["id"]) for c in skills.read_changes(settings.skill_changes_path)}
+    missing_changes = [c for c in skills.read_changes(src / skills.CHANGES_FILE) if int(c["id"]) not in have]
+    if missing_changes:
+        skills.append_changes(settings.skill_changes_path, missing_changes)
+    result["skill_changes"] = len(missing_changes)
 
     memory_src = src / "memory" / "MEMORY.md"
     if memory_src.is_file():

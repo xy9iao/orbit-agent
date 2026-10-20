@@ -81,10 +81,10 @@ def test_a_locked_section_that_is_not_a_heading_is_warned_about(packs_dir: Path,
     assert any("locked section '不建议喝' is not a '## ' heading" in m for m in caplog_warnings)
 
 
-def test_repo_config_enables_both_packs():
+def test_repo_config_enables_the_packs():
     from orbit.config import load_config
 
-    assert load_config(ROOT / "config.yaml").packs.enabled == ["fitness", "nutrition"]
+    assert load_config(ROOT / "config.yaml").packs.enabled == ["fitness", "nutrition", "study"]
 
 
 @pytest.mark.parametrize(
@@ -547,6 +547,10 @@ async def test_export_then_import_into_an_empty_db_gives_identical_records(db, d
     photo.parent.mkdir(parents=True)
     photo.write_bytes(b"jpeg")
     settings = home_settings(home, database_url)
+    skills.append_changes(settings.skill_changes_path, [
+        {"id": 1, "time": "2026-10-19T20:00:00", "pack": "fitness", "section": "沟通偏好", "reason": "user asked",
+         "old": "- 短", "new": "- 只用中文"},
+    ])
     config = make_config()
     config.packs.enabled = ["fitness", "nutrition"]
     loaded = load_packs(home / "packs", config.packs.enabled)
@@ -565,13 +569,14 @@ async def test_export_then_import_into_an_empty_db_gives_identical_records(db, d
         "records": {"fitness/workouts": 1, "nutrition/meals": 1},
         "reminders": 1,
         "messages": 1,
+        "skill_changes": 1,
         "media_files": 1,
     }
     assert manifest["schemas"]["fitness"]["schema_version"] == 1
     assert "workouts" in manifest["schemas"]["fitness"]["collections"]
     for rel in ("README.md", "manifest.json", "records/fitness/workouts.jsonl", "records/nutrition/meals.jsonl",
                 "skills/fitness/SKILL.md", "packs/nutrition/pack.yaml", "memory/MEMORY.md", "persona/system.md",
-                "reminders.jsonl", "messages.jsonl", "media/2026-10-19/120000_abc.jpg"):
+                "reminders.jsonl", "messages.jsonl", "skill_changes.jsonl", "media/2026-10-19/120000_abc.jpg"):
         assert (out / rel).is_file(), rel
     line = json.loads((out / "records/nutrition/meals.jsonl").read_text(encoding="utf-8"))
     assert line["occurred_at"] == "2026-10-19T19:00:00" and line["data"] == meal  # plain JSON, no Orbit needed
@@ -584,8 +589,9 @@ async def test_export_then_import_into_an_empty_db_gives_identical_records(db, d
 
     result = await import_snapshot(db, new_settings, config, out)
 
-    assert result == {"records": 2, "records_skipped": 0, "skills": 2, "packs": 2, "memory_lines": 1,
-                      "media_files": 1}
+    assert result == {"records": 2, "records_skipped": 0, "skills": 3, "packs": 3, "skill_changes": 1,
+                      "memory_lines": 1, "media_files": 1}
+    assert skills.read_changes(new_settings.skill_changes_path) == skills.read_changes(settings.skill_changes_path)
     assert await _all_records(db) == before
     assert (new_home / "packs/fitness/SKILL.md").read_text(encoding="utf-8") == (
         home / "packs/fitness/SKILL.md"
@@ -594,8 +600,8 @@ async def test_export_then_import_into_an_empty_db_gives_identical_records(db, d
     assert (new_home / "data/media/2026-10-19/120000_abc.jpg").read_bytes() == b"jpeg"
 
     again = await import_snapshot(db, new_settings, config, out)  # idempotent
-    assert again == {"records": 0, "records_skipped": 2, "skills": 0, "packs": 0, "memory_lines": 0,
-                     "media_files": 0}
+    assert again == {"records": 0, "records_skipped": 2, "skills": 0, "packs": 0, "skill_changes": 0,
+                     "memory_lines": 0, "media_files": 0}
     assert await _all_records(db) == before
     new = await records.add_record(db, loaded["fitness"], "workouts", BENCH)  # the id sequence moved past them
     assert new["id"] == 3

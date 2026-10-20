@@ -24,9 +24,10 @@ if TYPE_CHECKING:
 
 PACK_RULES = """规则：
 - 处理某个领域的事（排计划、记录、给建议）之前，先用 load_skill(pack) 读这个包的 SKILL.md，按里面的规则和记录格式做。
-- 用户报告训练或饮食时，立刻用 add_record 记下（一个动作或一餐一条），然后只用一行确认记了什么。
+- 用户报告训练、饮食或学习时，立刻用 add_record 按 SKILL.md 的记录格式记下，然后只用一行确认记了什么。
 - 用户纠正某个方法、或说出一个长期偏好时，用 write_skill 更新相关 section
-  （写完整的新内容，保留仍然有效的规则）；锁定的 section 只能用户自己改。
+  （写完整的新内容，保留仍然有效的规则，reason 写一句为什么）；锁定的 section 只能用户自己改。
+- 用户问你改过哪些 skill 用 list_skill_changes；要撤销某次修改用 revert_skill_change(id)。
 - 查历史和进度用 query_records 和 record_stats，不要凭记忆编数字。
 - 用户发来的照片已经保存，消息里有路径；记录和这张照片相关的内容时，把路径放进 data 的 photo 字段。"""
 
@@ -65,6 +66,7 @@ class Agent:
         self.persona_dir = persona_dir
         self.packs: dict[str, Pack] = packs or {}
         self.scheduler: OrbitScheduler | None = None
+        self.skill_changes: Path | None = None  # where write_skill logs its edits (set by OrbitApp)
 
     # ---- prompt assembly -------------------------------------------------
     def persona(self) -> str:
@@ -105,6 +107,7 @@ class Agent:
             scheduler=self.scheduler,
             router=self.router,
             packs=self.packs,
+            skill_changes=self.skill_changes,
         )
 
     async def _loop(
