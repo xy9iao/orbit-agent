@@ -64,11 +64,20 @@ def test_repo_packs_load_with_their_collections_routines_and_locks(packs):
     assert set(fitness.collections) == {"workouts"} and set(nutrition.collections) == {"meals"}
     assert [r.cron for r in fitness.routines] == ["30 7 * * *", "0 21 * * *"]
     assert [r.cron for r in nutrition.routines] == ["30 21 * * *"]
-    assert fitness.locked_sections == ["[redacted]"]
+    assert fitness.locked_sections == ["目标", "训练循环", "不能做"]
+    assert nutrition.locked_sections == ["每日摄入", "不建议吃"]
     assert fitness.schema_version == 1 and nutrition.schema_version == 1
-    sections = skills.section_names(skills.read_skill(fitness))
-    assert sections == ["[redacted]", "分化", "训练方法", "记录格式", "沟通偏好"]
-    assert skills.section_names(skills.read_skill(nutrition)) == ["目标", "估算规则", "记录格式", "沟通偏好"]
+    for pack in (fitness, nutrition):  # every locked name is a real section, so nothing is left unlocked by a typo
+        sections = skills.section_names(skills.read_skill(pack))
+        assert set(pack.locked_sections) <= set(sections), pack.name
+        assert {"记录格式", "沟通偏好"} <= set(sections)
+
+
+def test_a_locked_section_that_is_not_a_heading_is_warned_about(packs_dir: Path, caplog_warnings):
+    pack_file = packs_dir / "nutrition" / "pack.yaml"
+    pack_file.write_text(pack_file.read_text(encoding="utf-8").replace("不建议吃]", "不建议喝]"), encoding="utf-8")
+    assert load_pack(packs_dir / "nutrition").locked_sections == ["每日摄入", "不建议喝"]
+    assert any("locked section '不建议喝' is not a '## ' heading" in m for m in caplog_warnings)
 
 
 def test_repo_config_enables_both_packs():
@@ -114,6 +123,16 @@ def test_broken_pack_is_logged_and_skipped(packs_dir: Path, mutate, reason, capl
 
 
 @pytest.fixture
+def caplog_warnings():
+    from loguru import logger
+
+    messages: list[str] = []
+    handler = logger.add(lambda m: messages.append(str(m)), level="WARNING")
+    yield messages
+    logger.remove(handler)
+
+
+@pytest.fixture
 def caplog_loguru():
     from loguru import logger
 
@@ -141,9 +160,10 @@ async def test_add_record_validates_against_the_pack_schema(db, packs):
     assert error.startswith("error: data does not match the schema")
     assert "day_type: 'arms' is not one of" in error
     assert "sets.0.weight: 'heavy' is not of type 'number'" in error
-    meal = {"meal": "lunch", "items": [{"name": "x"}], "protein_g": 1, "mood": "ok"}
+    meal = {"meal": "brunch", "items": [], "protein_g": "lots"}
     extra = await registry.call("add_record", {"pack": "nutrition", "collection": "meals", "data": meal}, c)
-    assert "Additional properties are not allowed ('mood'" in extra
+    assert "meal: 'brunch' is not one of" in extra and "items: [] should be non-empty" in extra
+    assert "protein_g: 'lots' is not of type 'number'" in extra
 
     assert "unknown pack 'yoga'" in await registry.call(
         "add_record", {"pack": "yoga", "collection": "x", "data": {}}, c
@@ -253,8 +273,9 @@ def test_write_skill_replaces_one_section_and_keeps_history(packs):
     after = skills.read_skill(fitness)
     assert "- 只用中文。\n- 不超过五行。" in after
     assert skills.section_names(after) == skills.section_names(before)
-    for other in ("[redacted]", "分化", "训练方法", "记录格式"):
-        assert _section(after, other) == _section(before, other)
+    for other in skills.section_names(before):
+        if other != "沟通偏好":
+            assert _section(after, other) == _section(before, other)
     history = list(fitness.history_dir.glob("SKILL.*.md"))
     assert len(history) == 1 and history[0].read_text(encoding="utf-8") == before
 
@@ -268,9 +289,10 @@ def test_write_skill_refuses_locked_sections_and_headings(packs):
     fitness = packs["fitness"]
     before = skills.read_skill(fitness)
 
-    locked = skills.write_skill(fitness, "[redacted]", "随便练。")
-    assert locked.startswith("error: section '[redacted]' is locked")
-    injected = skills.write_skill(fitness, "训练方法", "加重。\n## [redacted]\n随便练。")
+    for section in fitness.locked_sections:
+        locked = skills.write_skill(fitness, section, "随便练。")
+        assert locked.startswith(f"error: section '{section}' is locked")
+    injected = skills.write_skill(fitness, "训练方法", "加重。\n## 不能做\n随便练。")
     assert injected.startswith("error: new_text must not contain")
 
     assert skills.read_skill(fitness) == before
@@ -279,7 +301,17 @@ def test_write_skill_refuses_locked_sections_and_headings(packs):
 
 def test_load_skill_tool_returns_skill_md(packs):
     c = ToolContext(channel="cli", chat_id="local", db=None, memory=None, packs=packs)
-    assert registry_call_sync("load_skill", {"pack": "nutrition"}, c).startswith("# nutrition\n\n## 目标")
+    expected = (ROOT / "packs" / "nutrition" / "SKILL.md").read_text(encoding="utf-8")
+    assert registry_call_sync("load_skill", {"pack": "nutrition"}, c) == expected
+
+
+def test_write_skill_keeps_the_section_marker_line():
+    text_ = "# x\n\n## 训练方法\n✏️ agent 可改\n- 旧规则\n\n## 沟通偏好\n✏️ agent 可改\n- 短\n"
+    updated, existed = skills.replace_section(text_, "训练方法", "- 新规则")
+    assert existed
+    assert "## 训练方法\n✏️ agent 可改\n- 新规则\n\n## 沟通偏好" in updated
+    again, _ = skills.replace_section(text_, "训练方法", "✏️ agent 可改\n- 新规则")  # not doubled
+    assert again == updated
 
 
 def _section(text_: str, name: str) -> str:
@@ -312,7 +344,8 @@ async def test_system_prompt_lists_packs_and_logging_rules(db, memory, tmp_path,
     agent, provider = make_agent(db, memory, tmp_path, packs, [Response(text="ok")])
     await agent.handle("cli", "local", "hi")
     system = provider.calls[0]["messages"][0]["content"]
-    assert "- fitness: 健身训练" in system and "- nutrition: 饮食记录" in system
+    for pack in packs.values():
+        assert f"- {pack.name}: {pack.description}" in system
     assert "add_record" in system and "write_skill" in system and "load_skill" in system
     assert "## [redacted]" not in system  # skills load on demand, not in every prompt
     names = {t["function"]["name"] for t in provider.calls[0]["tools"]}
@@ -382,7 +415,7 @@ async def test_routine_fire_runs_the_agent_with_the_skill_and_pushes(db, memory,
     assert orbit.pushed == ["今天蛋白质 90 g，还差 50 g：睡前一杯希腊酸奶加一勺蛋白粉。"]
     first = provider.calls[0]["messages"]
     assert "## 当前任务使用的 skill：nutrition" in first[0]["content"] and "## 估算规则" in first[0]["content"]
-    assert first[1]["content"].startswith("[定时任务 · nutrition] 今天的蛋白质检查")
+    assert first[1]["content"].startswith(f"[定时任务 · nutrition] {packs['nutrition'].routines[0].prompt}")
     assert provider.calls[0]["tools"]  # the full tool loop, not a one-shot generation
     assert '"sum": 90' in provider.calls[1]["messages"][-1]["content"]
     history = await db.get_history("telegram:42", 10)
