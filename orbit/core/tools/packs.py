@@ -150,16 +150,48 @@ def load_skill(ctx: ToolContext, pack: str) -> str:
 
 
 @tool
-def write_skill(ctx: ToolContext, pack: str, section: str, new_text: str) -> str:
+def write_skill(ctx: ToolContext, pack: str, section: str, new_text: str, reason: str = "") -> str:
     """Replace the body of one "## " section of a pack's SKILL.md (a new section name is appended). Use it
-    when the user corrects a method or states a lasting preference. Locked sections are refused.
+    when the user corrects a method or states a lasting preference. Locked sections are refused. Every edit
+    is logged and can be undone with revert_skill_change.
 
     Args:
         pack: Pack name.
         section: The section heading without "##", e.g. 训练方法.
         new_text: The complete new body of that section (keep every rule that still applies), no headings.
+        reason: Why, in one short sentence, e.g. what the user said.
     """
     try:
-        return skills.write_skill(_pack(ctx, pack), section, new_text)
+        return skills.write_skill(_pack(ctx, pack), section, new_text, reason=reason, log=ctx.skill_changes)
     except records.RecordError as e:
         return _err(e)
+
+
+@tool
+def list_skill_changes(ctx: ToolContext, since: str | None = None) -> Any:
+    """Edits made to pack skills with write_skill (and their reverts), newest first: id, time, pack,
+    section, reason, old and new section body (old is null when the edit added the section).
+
+    Args:
+        since: Only changes at or after this ISO date/time.
+    """
+    if ctx.skill_changes is None:
+        return "error: the skill change log is not available here"
+    try:
+        changes = skills.list_changes(ctx.skill_changes, since=records.parse_time(since, field="since"))
+    except records.RecordError as e:
+        return _err(e)
+    return changes[:50] or "no skill changes"
+
+
+@tool
+def revert_skill_change(ctx: ToolContext, change_id: int) -> str:
+    """Undo one logged skill edit: the section goes back to its old body (or is removed if the edit added
+    it). Refused if the section changed again since, or is locked.
+
+    Args:
+        change_id: The id from list_skill_changes.
+    """
+    if ctx.skill_changes is None:
+        return "error: the skill change log is not available here"
+    return skills.revert_change(ctx.packs or {}, ctx.skill_changes, change_id)

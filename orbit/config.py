@@ -53,6 +53,11 @@ class Settings(BaseSettings):
         return self.orbit_home / "persona"
 
     @property
+    def skill_changes_path(self) -> Path:
+        """Every write_skill edit, one JSON object per line (orbit.packs.skills)."""
+        return self.data_dir / "skill_changes.jsonl"
+
+    @property
     def media_dir(self) -> Path:
         """Photos received over Telegram, one folder per day (data/media/YYYY-MM-DD/)."""
         return self.data_dir / "media"

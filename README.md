@@ -205,7 +205,7 @@ only message lengths. `/incognito off` ends it, and 30 minutes of silence ends i
 These talk to the running daemon over the local API. `orbit radar ...` commands do not need the
 daemon.
 
-## Domain packs: training and meals over Telegram
+## Domain packs: training, meals and study over Telegram
 
 A pack is a folder, `packs/<name>/`, that teaches Orbit one area of life without new Python code:
 
@@ -213,7 +213,13 @@ A pack is a folder, `packs/<name>/`, that teaches Orbit one area of life without
   `routines` (`{cron, prompt}`, local time) and `locked_sections` (SKILL.md sections Orbit may not edit).
 - `SKILL.md`: the pack's rules in `## ` sections. Orbit reads it with `load_skill` before working in
   that area and updates one section with `write_skill` when you correct it (the old file goes to
-  `.history/`; locked sections are refused).
+  `.history/`; locked sections are refused). Every edit is logged to `data/skill_changes.jsonl`
+  (time, pack, section, reason, old and new text): ask Orbit what it changed (`list_skill_changes`) or
+  to undo one change (`revert_skill_change`).
+- `routines` crons are standard crontab: `0 19 * * 1,3` is Monday and Wednesday, `0`/`7` is Sunday.
+
+Packs in the repo: `fitness` (workouts), `nutrition` (meals) and `study` (daily study blocks and
+per-lecture status; preview reminder Mon/Wed 19:00, weekly review Sun 20:00).
 
 Enabled packs (`packs.enabled` in `config.yaml`) load at startup; a broken pack is logged and skipped.
 The chat prompt lists every pack, and records go into one `records` table (`pack`, `collection`,

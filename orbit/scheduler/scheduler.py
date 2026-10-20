@@ -6,12 +6,12 @@ from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from loguru import logger
 from tzlocal import get_localzone
 
+from orbit.cron import cron_trigger
 from orbit.scheduler.jobs.briefing import run_briefing
 from orbit.scheduler.jobs.routines import run_routine
 from orbit.scheduler.watchers.base import WATCHER_TYPES, Watcher
@@ -35,7 +35,7 @@ class OrbitScheduler:
         if cfg.enabled:
             self.sched.add_job(
                 self._run_briefing,
-                CronTrigger.from_crontab(cfg.cron, timezone=get_localzone()),
+                cron_trigger(cfg.cron, timezone=get_localzone()),
                 id="briefing",
                 replace_existing=True,
                 misfire_grace_time=600,
@@ -45,7 +45,7 @@ class OrbitScheduler:
         if export.enabled:
             self.sched.add_job(
                 self._run_export,
-                CronTrigger.from_crontab(export.cron, timezone=get_localzone()),
+                cron_trigger(export.cron, timezone=get_localzone()),
                 id="export",
                 replace_existing=True,
                 misfire_grace_time=3600,
@@ -115,7 +115,7 @@ class OrbitScheduler:
             for i, routine in enumerate(pack.routines):
                 self.sched.add_job(
                     self.fire_routine,
-                    CronTrigger.from_crontab(routine.cron, timezone=get_localzone()),
+                    cron_trigger(routine.cron, timezone=get_localzone()),
                     args=[pack.name, routine],
                     id=f"routine-{pack.name}-{i}",
                     replace_existing=True,

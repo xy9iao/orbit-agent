@@ -152,6 +152,16 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: Why enforce "no writes" in the tool registry instead of telling the model?** A: The prompt is a request, not a guarantee: the persona tells the model to remember things proactively, and models sometimes call tools they were told not to. Filtering both the schemas offered and the calls executed makes the guarantee independent of the model.
 - **Q: Why persist the on/off flag but not the conversation?** A: The flag is metadata the user relies on: losing it on a restart would silently start recording a chat they think is private. The conversation is exactly what must not be persisted, so losing it on restart is the intended failure.
 
+## Skill change log (`orbit/packs/skills.py`, `orbit/cron.py`)
+1. `write_skill` appends `{id, time, pack, section, reason, old, new}` to `data/skill_changes.jsonl` after each edit.
+2. `list_skill_changes(since?)` reads it newest first; `revert_skill_change(id)` writes the old body back (or removes an added section).
+3. A revert only applies if the section still equals that change's `new` text, otherwise it names the later changes to undo first.
+4. The revert is itself a logged change (`reverts: id`), and locked sections are refused for reverts too.
+5. `cron_trigger` turns crontab weekday numbers into names, because APScheduler 3 counts Monday as 0.
+
+- **Q: Why refuse a revert when the section changed later, instead of just writing the old text?** A: Writing it would silently drop the later edit. Requiring reverts in reverse order is the same rule as `git revert` conflicts: only undo a change whose result is still what is on disk.
+- **Q: Why an append-only JSONL file and not a table?** A: Skills are files, not database rows; the log lives next to them, is readable with `grep`/`jq` without Orbit, and is copied into the export as-is. Append-only means a crash mid-write loses at most the last line.
+
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.

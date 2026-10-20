@@ -62,7 +62,7 @@ jobs:
 # A pack that fails to load is logged and skipped.
 packs:
   dir: packs
-  enabled: [fitness, nutrition]
+  enabled: [fitness, nutrition, study]
 
 # Polled in-process by APScheduler. Optional keys per watcher: interval_minutes (default 5) and
 # first_run_delay_seconds (first check that long after startup instead of one full interval later).

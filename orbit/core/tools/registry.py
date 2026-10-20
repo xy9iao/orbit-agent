@@ -13,6 +13,7 @@ import types
 import typing
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from loguru import logger
@@ -37,6 +38,7 @@ class ToolContext:
     extra: dict[str, Any] = field(default_factory=dict)
     router: ModelRouter | None = None  # for tools that need the model (e.g. embeddings); None in bare contexts
     packs: dict[str, Pack] | None = None  # loaded domain packs (orbit.packs), by name
+    skill_changes: Path | None = None  # data/skill_changes.jsonl; None: write_skill edits are not logged
 
 
 @dataclass
