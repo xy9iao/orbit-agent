@@ -142,6 +142,16 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: Why both pg_dump and a plain-file export?** A: The dump is exact and quick to restore, but only into Postgres with this schema. The plain files are slower to restore but readable by any tool, so they outlive a change of stack.
 - **Q: How do you make an import idempotent?** A: Give every row a stable identity (here the original id), insert with `ON CONFLICT DO NOTHING`, then reset the sequence past the imported ids; for files, copy only what is missing and back up anything you overwrite.
 
+## Incognito mode (`orbit/core/incognito.py`, `OrbitApp.handle`)
+1. `/incognito` turns a chat incognito (kv keeps only the expiry time), `/incognito off` or 30 idle minutes turn it off, and a `??` prefix makes one message incognito.
+2. An incognito turn uses an in-process deque as its history and never touches the messages table, so the nightly export cannot contain it.
+3. Only read-only tools are offered, and `ToolRegistry.call(..., allow=...)` refuses everything else, so even a model that ignores the prompt cannot write memory, skills or records.
+4. Telegram photos arrive as bytes; `OrbitApp` saves them to `data/media` only for normal turns and passes them from memory otherwise.
+5. Logs record only lengths and tool names for incognito turns, and every incognito reply starts with 🕶 so the user can see the mode.
+
+- **Q: Why enforce "no writes" in the tool registry instead of telling the model?** A: The prompt is a request, not a guarantee: the persona tells the model to remember things proactively, and models sometimes call tools they were told not to. Filtering both the schemas offered and the calls executed makes the guarantee independent of the model.
+- **Q: Why persist the on/off flag but not the conversation?** A: The flag is metadata the user relies on: losing it on a restart would silently start recording a chat they think is private. The conversation is exactly what must not be persisted, so losing it on restart is the intended failure.
+
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.

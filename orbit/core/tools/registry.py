@@ -161,10 +161,16 @@ class ToolRegistry:
     def names(self) -> list[str]:
         return list(self._tools)
 
-    def schemas(self) -> list[dict[str, Any]]:
-        return [t.schema() for t in self._tools.values()]
+    def schemas(self, allow: frozenset[str] | set[str] | None = None) -> list[dict[str, Any]]:
+        """Every tool's schema, or only the ones named in `allow`."""
+        return [t.schema() for t in self._tools.values() if allow is None or t.name in allow]
 
-    async def call(self, name: str, arguments: dict[str, Any], ctx: ToolContext) -> str:
+    async def call(
+        self, name: str, arguments: dict[str, Any], ctx: ToolContext, allow: frozenset[str] | set[str] | None = None
+    ) -> str:
+        """Run a tool. With `allow`, any other name is refused even if the model calls it anyway."""
+        if allow is not None and name not in allow:
+            return f"error: tool '{name}' is not available right now"
         tool = self._tools.get(name)
         if tool is None:
             return f"error: unknown tool '{name}'"

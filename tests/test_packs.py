@@ -12,6 +12,7 @@ from typing import Any
 import pytest
 from sqlalchemy import select, text
 
+from orbit.channels import media
 from orbit.channels.telegram import TelegramChannel
 from orbit.config import Settings
 from orbit.core.agent import Agent
@@ -480,10 +481,11 @@ def photo_update(chat_id: int, caption: str | None, data: bytes) -> tuple[Simple
 async def test_photo_message_is_saved_and_reaches_the_model_as_an_image(db, memory, tmp_path, packs, caption):
     agent, provider = make_agent(db, memory, tmp_path, packs, [Response(text="看到了：鸡胸饭")])
 
-    async def handler(incoming):
-        return await agent.handle(incoming.channel, incoming.chat_id, incoming.text, incoming.images)
+    async def handler(incoming):  # what OrbitApp.handle does for a normal (not incognito) message
+        text_, images = media.prepare(incoming, incoming.text, tmp_path / "data" / "media", tmp_path, save=True)
+        return await agent.handle(incoming.channel, incoming.chat_id, text_, images)
 
-    channel = TelegramChannel("token", owner_chat_id=7, media_dir=tmp_path / "data" / "media", home=tmp_path)
+    channel = TelegramChannel("token", owner_chat_id=7)
     channel._handler = handler
     jpeg = b"\xff\xd8\xff\xe0fake-jpeg"
     update, replies = photo_update(7, caption, jpeg)
@@ -511,7 +513,7 @@ async def test_photo_message_is_saved_and_reaches_the_model_as_an_image(db, memo
 
 
 async def test_photo_from_a_stranger_is_ignored(tmp_path):
-    channel = TelegramChannel("token", owner_chat_id=7, media_dir=tmp_path / "media")
+    channel = TelegramChannel("token", owner_chat_id=7)
 
     async def handler(_):
         raise AssertionError("must not be called")
@@ -519,7 +521,7 @@ async def test_photo_from_a_stranger_is_ignored(tmp_path):
     channel._handler = handler
     update, replies = photo_update(999, "hi", b"x")
     await channel._on_photo(update, None)
-    assert replies == [] and not (tmp_path / "media").exists()
+    assert replies == []
 
 
 def test_text_messages_are_unchanged_by_images_support():

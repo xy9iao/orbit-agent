@@ -197,6 +197,11 @@ orbit push "hello"              # push raw text to Telegram, no model
 orbit export / orbit import DIR # plain-file snapshot of your data (works without the daemon)
 ```
 
+**Incognito.** For questions that should leave no trace (a translation, a quick fact), send
+`/incognito` (in Telegram or `orbit chat`) or start a single message with `??`. Replies then start with
+🕶; nothing goes into the chat history, memory, skills or records, photos are not saved, and logs show
+only message lengths. `/incognito off` ends it, and 30 minutes of silence ends it too.
+
 These talk to the running daemon over the local API. `orbit radar ...` commands do not need the
 daemon.
 

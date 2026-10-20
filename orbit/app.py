@@ -5,15 +5,18 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from collections import deque
 from datetime import datetime
 from typing import Any
 
 from loguru import logger
 
 from orbit import __version__
+from orbit.channels import media
 from orbit.channels.base import Channel, Incoming
 from orbit.channels.local_api import LocalApiChannel
 from orbit.config import Config, Settings, load_config
+from orbit.core import incognito
 from orbit.core.agent import Agent
 from orbit.core.memory import MemoryStore
 from orbit.core.router import ModelRouter
@@ -58,6 +61,7 @@ class OrbitApp:
         self.agent = Agent(
             self.config.agent, self.router, registry, self.memory, self.db, self.settings.persona_dir, self.packs
         )
+        self.incognito = incognito.IncognitoSessions(lambda: self.db, history_turns=self.config.agent.history_turns)
         self.scheduler = OrbitScheduler(self)
         self.agent.scheduler = self.scheduler
         self.channels: dict[str, Channel] = {}
@@ -85,8 +89,6 @@ class OrbitApp:
                     self.settings.telegram_bot_token,
                     self.settings.telegram_owner_chat_id,
                     proxy=self.settings.proxy_url,
-                    media_dir=self.settings.media_dir,
-                    home=self.settings.orbit_home,
                 )
             else:
                 logger.warning("telegram enabled but TELEGRAM_BOT_TOKEN / TELEGRAM_OWNER_CHAT_ID missing - CLI only")
@@ -122,10 +124,39 @@ class OrbitApp:
 
     # ---- message flow ----------------------------------------------------------
     async def handle(self, incoming: Incoming) -> str:
-        logger.info("[{}:{}] user: {}", incoming.channel, incoming.chat_id, incoming.text[:200])
-        reply = await self.agent.handle(incoming.channel, incoming.chat_id, incoming.text, incoming.images)
-        logger.info("[{}:{}] orbit: {}", incoming.channel, incoming.chat_id, reply[:200])
-        return reply
+        """One message: incognito commands, then an incognito turn (no trace) or a normal one."""
+        who = f"[{incoming.channel}:{incoming.chat_id}]"
+        session = self.agent.session_key(incoming.channel, incoming.chat_id)
+        kind, text = incognito.parse(incoming.text)
+        if kind == "on":
+            await self.incognito.enable(session)
+            logger.info("{} incognito on", who)
+            return incognito.ON_TEXT
+        if kind == "off":
+            was_on = await self.incognito.disable(session)
+            logger.info("{} incognito off", who)
+            return incognito.OFF_TEXT if was_on else incognito.ALREADY_OFF_TEXT
+
+        state = await self.incognito.state(session)
+        if state == "on" or kind == "once":
+            if state == "on":  # inside incognito mode: keep the thread going and push the timeout back
+                buffer = self.incognito.buffer(session)
+                await self.incognito.touch(session)
+            else:  # a one-off "??" question: no context, nothing kept
+                buffer = deque()
+            text, images = media.prepare(
+                incoming, text, self.settings.media_dir, self.settings.orbit_home, save=False
+            )
+            logger.info("{} user: <incognito, {} chars, {} images>", who, len(text), len(images))
+            reply = await self.agent.handle(incoming.channel, incoming.chat_id, text, images, incognito=buffer)
+            logger.info("{} orbit: <incognito, {} chars>", who, len(reply))
+            return incognito.REPLY_MARK + reply
+
+        text, images = media.prepare(incoming, text, self.settings.media_dir, self.settings.orbit_home, save=True)
+        logger.info("{} user: {}", who, text[:200])
+        reply = await self.agent.handle(incoming.channel, incoming.chat_id, text, images)
+        logger.info("{} orbit: {}", who, reply[:200])
+        return (incognito.EXPIRED_NOTE if state == "expired" else "") + reply
 
     async def push(self, text: str, channel: str | None = None, chat_id: str | None = None) -> bool:
         """Deliver a proactive message. Falls back to Telegram owner if the origin channel can't push."""

@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-from datetime import datetime
-from pathlib import Path
-
 from loguru import logger
 from telegram import Update
 from telegram.constants import ChatAction
@@ -26,38 +23,13 @@ def _chunks(text: str, size: int = MAX_LEN) -> list[str]:
     return [text[i : i + size] for i in range(0, len(text), size)] or [""]
 
 
-def save_photo(media_dir: Path, data: bytes, name: str, now: datetime | None = None) -> Path:
-    """Write a received photo to media_dir/YYYY-MM-DD/HHMMSS_<name>.jpg and return its path."""
-    now = now or datetime.now()
-    day_dir = media_dir / now.strftime("%Y-%m-%d")
-    day_dir.mkdir(parents=True, exist_ok=True)
-    path = day_dir / f"{now.strftime('%H%M%S')}_{name}.jpg"
-    path.write_bytes(data)
-    return path
-
-
-def photo_text(caption: str | None, path: Path, home: Path | None) -> str:
-    """The text half of a photo message: the caption plus where the photo was saved (relative to ORBIT_HOME)."""
-    shown = path.relative_to(home).as_posix() if home and path.is_relative_to(home) else path.as_posix()
-    return f"{(caption or '').strip()}\n[照片已保存：{shown}]".strip()
-
-
 class TelegramChannel:
     name = "telegram"
 
-    def __init__(
-        self,
-        token: str,
-        owner_chat_id: int,
-        proxy: str | None = None,
-        media_dir: Path | None = None,
-        home: Path | None = None,
-    ):
+    def __init__(self, token: str, owner_chat_id: int, proxy: str | None = None):
         self.token = token
         self.owner_chat_id = owner_chat_id
         self.proxy = proxy
-        self.media_dir = media_dir or Path("data/media")
-        self.home = home
         self.app: Application | None = None
         self._handler: MessageHandler | None = None
 
@@ -72,6 +44,8 @@ class TelegramChannel:
         self.app = builder.build()
         self.app.add_handler(CommandHandler("start", self._on_start))
         self.app.add_handler(CommandHandler("id", self._on_start))
+        # "/incognito [off]" goes to Orbit as text; OrbitApp.handle turns incognito mode on or off.
+        self.app.add_handler(CommandHandler("incognito", self._on_text))
         self.app.add_handler(TgMessageHandler(filters.TEXT & ~filters.COMMAND, self._on_text))
         self.app.add_handler(TgMessageHandler(filters.PHOTO, self._on_photo))
         await self.app.initialize()
@@ -126,7 +100,10 @@ class TelegramChannel:
             await update.message.reply_text(part)
 
     async def _on_photo(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """A photo (caption optional): save the largest size, then pass it on with the caption."""
+        """A photo (caption optional): download the largest size and pass it on with the caption.
+
+        OrbitApp decides whether it is saved to data/media (normal) or only held in memory (incognito).
+        """
         if not update.message or not update.message.photo or not update.effective_chat:
             return
         if not self._is_owner(update):
@@ -137,14 +114,12 @@ class TelegramChannel:
         largest = update.message.photo[-1]
         file = await largest.get_file()
         data = bytes(await file.download_as_bytearray())
-        path = save_photo(self.media_dir, data, largest.file_unique_id)
-        logger.info("telegram: photo saved to {} ({} bytes)", path, len(data))
         reply = await self._handler(
             Incoming(
                 channel=self.name,
                 chat_id=str(update.effective_chat.id),
-                text=photo_text(update.message.caption, path, self.home),
-                images=[path],
+                text=(update.message.caption or "").strip(),
+                photos=[(largest.file_unique_id, data)],
             )
         )
         for part in _chunks(reply):
