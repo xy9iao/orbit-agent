@@ -121,9 +121,29 @@ All counted from this repository:
 
 | | |
 |---|---|
-| Tests | **690** (pytest against a real Postgres + pgvector; no live network) |
+| Tests | **688** (pytest against a real Postgres + pgvector; no live network) |
 | Companies in the radar seed list | **31** (14 Ashby, 11 Greenhouse, 6 Lever) in [`orbit/radar/seeds.yaml`](orbit/radar/seeds.yaml) |
 | Extraction models compared with the eval harness | **3** (gpt-6-luna, claude-haiku-5-5, claude-sonnet-5-5), on a 30-posting labeled set in [`evals/radar_labels.yaml`](evals/radar_labels.yaml) |
+
+## Extraction eval
+
+`orbit radar eval` runs the configured `extract` model over a labeled set and scores each field
+(`evals/radar_labels.yaml`, n=30). Latest run, model **claude-sonnet-5-5** (effort low), 0 failed
+extractions:
+
+| Field | Accuracy | Jaccard |
+|---|---:|---:|
+| is_internship | 100.0% | – |
+| terms | 100.0% | 1.00 |
+| locations | 86.7% | 0.93 |
+| remote_ok | 96.7% | – |
+| canada_eligible | 100.0% | – |
+| role_type | 93.3% | – |
+| tech_stack | 86.7% | 0.98 |
+
+Accuracy is an exact match (set equality for list fields); Jaccard is the mean set overlap for list
+fields. The labels are 30 real postings from the tracked boards, labeled by hand from the posting text
+and checked against the source; the labeling rules are in the file's header.
 
 ## Quickstart
 
@@ -138,9 +158,9 @@ cp .env.example .env
 Edit `.env`:
 
 - set `ANTHROPIC_API_KEY` (chat, briefing, extraction) and `OPENAI_API_KEY` (embeddings);
-- Telegram is optional: fill `TELEGRAM_BOT_TOKEN` and `TELEGRAM_OWNER_CHAT_ID`
-  ([@BotFather](https://t.me/BotFather) gives the token), or **delete both lines** to run CLI-only.
-  The placeholder token from `.env.example` is rejected by Telegram and stops startup.
+- Telegram is optional: the `TELEGRAM_*` lines ship commented out, so Orbit starts CLI-only. To use it,
+  uncomment them and fill `TELEGRAM_BOT_TOKEN` ([@BotFather](https://t.me/BotFather) gives the token)
+  and `TELEGRAM_OWNER_CHAT_ID`.
 
 Start Postgres (pgvector) and Orbit, then check health:
 

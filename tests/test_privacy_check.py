@@ -2,16 +2,59 @@
 
 from __future__ import annotations
 
+import os
+import shutil
 import subprocess
 from pathlib import Path
 
 import pytest
 
 from tests.conftest import ROOT
-from tests.test_publish_public import BASH, DISC, ENV, commit, git
 
 SCRIPT = ROOT / "scripts" / "privacy_check.sh"
+# A CJK term must also match inside a longer CJK phrase (DISC + 突出). A neutral stand-in: never put a real
+# private term in a tracked file, even escaped.
+DISC = "甲乙丙"
+
+
+def find_bash() -> str | None:
+    """Git's bash on Windows (System32\bash.exe would be WSL), else bash on PATH."""
+    if os.name == "nt":
+        git = shutil.which("git")
+        if git:
+            for candidate in (Path(git).parent.parent / "bin" / "bash.exe", Path(git).parent / "bash.exe"):
+                if candidate.is_file():
+                    return str(candidate)
+    return shutil.which("bash")
+
+
+BASH = find_bash()
 pytestmark = pytest.mark.skipif(BASH is None, reason="needs bash")
+ENV = {
+    **os.environ,
+    "GIT_AUTHOR_NAME": "Test",
+    "GIT_AUTHOR_EMAIL": "test@example.com",
+    "GIT_COMMITTER_NAME": "Test",
+    "GIT_COMMITTER_EMAIL": "test@example.com",
+    "LC_ALL": "C",
+}
+
+
+def git(repo: Path, *args: str) -> str:
+    out = subprocess.run(["git", "-C", str(repo), *args], env=ENV, capture_output=True, check=True)
+    return out.stdout.decode("utf-8", errors="replace")
+
+
+def commit(repo: Path, files: dict[str, str | None], message: str) -> None:
+    for name, content in files.items():
+        path = repo / name
+        if content is None:
+            git(repo, "rm", "-q", name)
+            continue
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content.encode("utf-8"))
+        git(repo, "add", name)
+    git(repo, "commit", "-q", "-m", message)
 
 
 @pytest.fixture

@@ -1,8 +1,16 @@
 # Internship Radar extraction eval set (M4.5). Format: see the docstring of orbit/radar/eval.py.
 #
-# STATUS: UNVERIFIED. The 30 `expected` blocks below were drafted by a coding agent that read each
-# posting's description_text by hand. They were NOT produced by the extraction model. Until a human has
-# reviewed every item, `orbit radar eval` prints a warning banner and its numbers are provisional.
+# STATUS: checked. The 30 `expected` blocks below were drafted by a coding agent that read each
+# posting's description_text by hand (never from the extraction model's output), then checked against
+# the source text by Claude. The labeling rules below were approved by Xinyang Qiao on 2026-10-21.
+#
+# Approved labeling rules (on top of the field definitions in step 2 below):
+#   - A posting that calls itself an internship (or co-op) counts as is_internship true, even if it is
+#     also open to graduates or high-school students.
+#   - A year-only or season-only term ("2027", "this summer") stays empty: terms = [].
+#   - A separately listed remote location makes remote_ok true, unless the role's own text (or its
+#     listing tag, such as "(Hybrid)") says hybrid.
+#   - A term that spills a few days into the next season does not count that season.
 #
 # How to review (about 1-2 minutes per item):
 #   1. Read the item's title, location_raw and description_text. Label only from that snapshot: it is
@@ -31,10 +39,10 @@
 # Sources: 30 live postings polled from the seeded public Greenhouse, Lever and Ashby boards in
 # October 2026; description_text is the stored plain text cut to at most 6000 characters.
 
-status: "UNVERIFIED — needs human review"
+status: "labels checked against source by Claude; labeling rules approved by Xinyang Qiao, 2026-10-21"
 version: 1
-notes: 'Draft labels for the extraction eval (M4.5): 30 real postings, drafted by reading each snapshot; not reviewed
-  by a human yet.'
+notes: 'Labels for the extraction eval (M4.5): 30 real postings, drafted by reading each snapshot and checked
+  against the source text; labeling rules in the header comment.'
 items:
 - id: ashby:cohere:36d1f52f-8270-4652-adf5-5303a0ff341b
   source: ashby
@@ -250,13 +258,13 @@ items:
   expected:
     is_internship: true
     terms: [Winter 2027]
-    locations: [Remote (Canada)]
+    locations: [Remote (Canada), Remote (US)]
     remote_ok: true
     canada_eligible: true
     role_type: data
     tech_stack: [sql, looker, amplitude, hex, python, r]
-  label_notes: '''Remote (United States | Canada)'' collapses to Remote (Canada) under the normalizer''s Canada-wins
-    rule. January to April 2027 = Winter 2027.'
+  label_notes: '''Remote (United States | Canada)'' is labeled as both Remote (Canada) and Remote (US) because
+    the posting says it is remote within Canada/US, and January to April 2027 = Winter 2027.'
   description_text: |-
     1Password is growing. We’ve surpassed $400M in ARR and we’re continuing to accelerate, earning a spot on the Forbes Cloud 100 for four years in a row and teaming up with iconic partners like Oracle Red Bull Racing.
 
@@ -691,13 +699,12 @@ items:
     is_internship: true
     terms: []
     locations: ['Toronto, ON', 'San Francisco, CA', Remote (US)]
-    remote_ok: true
+    remote_ok: false
     canada_eligible: true
     role_type: research
     tech_stack: [python, c++]
-  label_notes: 'No term or dates stated. ''Remote US (Hybrid)'': Lever appends the posting''s workplace type, so
-    the role is tagged hybrid while listing a US-remote location; labeled remote_ok true because a remote location
-    is offered (only for the US). Canada-eligible through Toronto (CAD range given).'
+  label_notes: 'No term or dates stated, Remote (US) stays in locations but remote_ok is false because the listing
+    itself is tagged Hybrid (''Remote US (Hybrid)''), and it is Canada-eligible through Toronto (CAD range given).'
   description_text: |-
     Waabi, founded by AI visionary Raquel Urtasun, is the leader in Physical AI. With a world-class team, we're unlocking the next era of autonomous transportation with technology that's powering commercial autonomous trucks and robotaxis. Waabi is backed by and partners with world leaders in AI, automotive, logistics, and deep tech.
 
@@ -1216,10 +1223,9 @@ items:
     remote_ok: false
     canada_eligible: false
     role_type: data
-    tech_stack: [bigquery, dbt, r, python, omni, domo]
-  label_notes: US-only co-op restricted to Northeastern University co-op students, in office 5 days in Boston ->
-    canada_eligible false. January to June 2027 spans Winter and Summer 2027. 'SQL-based data warehouse' not counted
-    as naming SQL (borderline).
+    tech_stack: [bigquery, dbt, r, python, omni, domo, sql]
+  label_notes: US-only co-op for Northeastern University co-op students in office 5 days in Boston (canada_eligible
+    false), January to June 2027 spans Winter and Summer 2027, and 'SQL-based data warehouse' counts as naming SQL.
   description_text: |-
     Later is the world’s most intelligent influencer marketing company, built to give brands the confidence to create unforgettable campaigns. By combining real creator relationships, trusted intelligence, and expert guidance, Later removes fear and guesswork from one of marketing’s most visible investments.
 

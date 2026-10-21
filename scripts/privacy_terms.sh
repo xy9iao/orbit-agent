@@ -1,4 +1,4 @@
-# Shared by scripts/privacy_check.sh and scripts/publish_public.sh (source it; needs LC_ALL=C).
+# The term-matching rule of scripts/privacy_check.sh (source it; needs LC_ALL=C).
 #
 # How a privacy term matches:
 # - a term containing any CJK character (Chinese, Japanese kana, Korean, fullwidth forms) matches as a
