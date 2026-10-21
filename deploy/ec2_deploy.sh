@@ -254,7 +254,7 @@ check_env() {
     if [[ $proxy =~ $loopback ]]; then
       shopt -u nocasematch
       die "PROXY_URL=$proxy points at the container itself inside Docker, so OpenAI and Telegram calls fail.
-       On EC2 remove PROXY_URL from .env (no proxy is needed); see QUESTIONS.md (M1.8)."
+       On EC2 remove PROXY_URL from .env (no proxy is needed)."
     fi
     shopt -u nocasematch
     warn "PROXY_URL is set ($proxy); EC2 normally needs no proxy"
