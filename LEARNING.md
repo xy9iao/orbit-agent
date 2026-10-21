@@ -175,7 +175,7 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 ## Publishing a public mirror (`scripts/publish_public.sh`, `.publicignore`)
 1. Development happens only in the private repo; the public repo is a mirror regenerated at each release tag.
 2. The script clones `main` fresh and runs `git filter-repo` to drop private paths from every commit and redact private terms in contents and messages.
-3. Terms are replaced as whole words with regex lookarounds, so `PGPASSWORD`-style identifiers containing a term survive.
+3. ASCII terms are replaced as whole words with regex lookarounds, so `PGPASSWORD`-style identifiers survive; terms with a CJK character are replaced anywhere, because Chinese has no word boundaries.
 4. The result is checked with `privacy_check.sh --history` (every commit's diff and message) plus a removed-path scan; any hit aborts.
 5. Nothing is pushed until a typed `yes`; main goes with `--force-with-lease` and the tag must be new.
 
