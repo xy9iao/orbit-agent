@@ -8,7 +8,8 @@
 #    - removes private-packs/, packs/fitness/, packs/nutrition/, packs/study/ and every path in the
 #      clone's .publicignore;
 #    - replaces every term from --terms (default private-packs/.privacy-terms) with [redacted] in file
-#      contents and commit messages (whole words, the same rule as scripts/privacy_check.sh).
+#      contents and commit messages (CJK terms anywhere, other terms as whole words: the rule in
+#      scripts/privacy_terms.sh, shared with scripts/privacy_check.sh).
 # 3. Checks the result: scripts/privacy_check.sh --history (every commit's message, paths and diff) and
 #    that no removed path is left in any commit. Aborts on any match.
 # 4. Tags HEAD as TAG, prints a summary, and (without --dry-run) asks for "yes" before pushing main
@@ -31,6 +32,8 @@ die() {
 
 script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 repo_root=$(git -C "$script_dir" rev-parse --show-toplevel)
+# shellcheck source=privacy_terms.sh
+. "$script_dir/privacy_terms.sh"
 
 tag=
 dry_run=false
@@ -89,14 +92,19 @@ if [[ -f .publicignore ]]; then
 fi
 
 terms=$workdir/terms.txt
-tr -d '\r' <"$terms_file" | grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' >"$terms" || true
+privacy_read_terms "$terms_file" >"$terms"
 [[ -s $terms ]] || die "$terms_file has no terms"
-# Whole-word regexes: not preceded or followed by an ASCII word character, like privacy_check.sh.
-# (A plain --replace-text literal would also hit a term inside a longer word, e.g. inside a variable name.)
+# The matching rule of scripts/privacy_terms.sh: a CJK term is replaced as a plain literal, anywhere
+# (inside 保密词 too); any other term only as a whole word, not preceded or followed by an ASCII word
+# character (a plain literal would also hit a term inside a longer word, e.g. inside a variable name).
 expressions=$workdir/replacements.txt
 while IFS= read -r term; do
-  escaped=$(printf '%s' "$term" | sed 's/[][\.*^$+?(){}|/]/\\&/g')
-  printf 'regex:(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])==>[redacted]\n' "$escaped"
+  if privacy_is_cjk "$term"; then
+    printf '%s==>[redacted]\n' "$term"
+  else
+    escaped=$(printf '%s' "$term" | sed 's/[][\.*^$+?(){}|/]/\\&/g')
+    printf 'regex:(?<![A-Za-z0-9_])%s(?![A-Za-z0-9_])==>[redacted]\n' "$escaped"
+  fi
 done <"$terms" >"$expressions"
 
 echo "publish: rewriting history (removing $(wc -l <"$paths" | tr -d ' ') path(s), redacting $(wc -l <"$terms" | tr -d ' ') term(s))"

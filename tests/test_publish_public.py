@@ -14,7 +14,10 @@ import pytest
 from tests.conftest import ROOT
 
 SCRIPT = ROOT / "scripts" / "publish_public.sh"
-TERMS = ["XTERM-42", "ABC", "保密词"]
+# A CJK term must also be redacted inside a longer CJK phrase (DISC + 突出), like a diagnosis term inside
+# a longer diagnosis. A neutral stand-in: never put a real private term in a tracked file, even escaped.
+DISC = "甲乙丙"
+TERMS = ["XTERM-42", "ABC", "保密词", DISC]
 
 
 def find_bash() -> str | None:
@@ -69,13 +72,13 @@ def private_repo(tmp_path: Path) -> Path:
     repo.mkdir()
     git(repo, "init", "-q", "-b", "main")
     commit(repo, {
-        "notes.md": "Diagnosis XTERM-42, grade ABC 3.9, 一个保密词在这里.\n",  # a CJK term inside CJK text
+        "notes.md": f"Diagnosis XTERM-42, grade ABC 3.9, 一个保密词在这里.\n诊断：{DISC}突出\n",  # CJK inside CJK
         "code.py": "PGABCWORD = 1  # ABC inside a longer word must survive\n",
         "packs/fitness/SKILL.md": "private training plan\n",
         "private-packs/study/SKILL.md": "private study plan\n",
         "QUESTIONS.md": "owner to-do\n",
         ".publicignore": "# owner notes\nQUESTIONS.md\n",
-    }, "Add notes about XTERM-42")
+    }, f"Add notes about XTERM-42 ({DISC}突出)")
     commit(repo, {"notes.md": "Project notes.\n", "packs/fitness/SKILL.md": None}, "Clean notes")
     commit(repo, {"README.md": "Orbit\n"}, "Add README")
     return repo
@@ -104,7 +107,8 @@ def test_dry_run_removes_private_terms_and_paths_from_the_whole_history(private_
         assert term not in history.replace("PGABCWORD", "")
     assert "[redacted]" in history
     assert "PGABCWORD" in history  # whole-word replacement: code that merely contains a term is untouched
-    assert "Add notes about [redacted]" in history
+    assert "Add notes about [redacted] ([redacted]突出)" in history
+    assert "诊断：[redacted]突出" in history  # a CJK term is replaced inside a longer CJK phrase
 
     paths = set(git(public, "log", "--all", "--format=", "--name-only").split())
     assert not any(p.startswith(("packs/fitness/", "private-packs/")) or p == "QUESTIONS.md" for p in paths)
