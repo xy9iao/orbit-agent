@@ -172,16 +172,6 @@ Per module: a 5-line explanation, then 2 interview questions with short answers.
 - **Q: Why a second directory instead of a private branch or submodule?** A: The private content changes daily and is edited by Orbit itself; a plain git-ignored folder needs no git operations, keeps one code path, and is mounted into Docker like other runtime data. A submodule would still need a private remote and careful syncing.
 - **Q: Does deleting a file and adding it to .gitignore make a repo safe to publish?** A: No. The file is still in every earlier commit. You either publish a fresh repository from the cleaned tree or rewrite history (git filter-repo) and force-push, and treat anything already pushed publicly as leaked.
 
-## Publishing a public mirror (`scripts/publish_public.sh`, `.publicignore`)
-1. Development happens only in the private repo; the public repo is a mirror regenerated at each release tag.
-2. The script clones `main` fresh and runs `git filter-repo` to drop private paths from every commit and redact private terms in contents and messages.
-3. ASCII terms are replaced as whole words with regex lookarounds, so `PGPASSWORD`-style identifiers survive; terms with a CJK character are replaced anywhere, because Chinese has no word boundaries.
-4. The result is checked with `privacy_check.sh --history` (every commit's diff and message) plus a removed-path scan; any hit aborts.
-5. Nothing is pushed until a typed `yes`; main goes with `--force-with-lease` and the tag must be new.
-
-- **Q: Why rewrite a clone instead of the private repo itself?** A: Rewriting changes every commit id, which breaks open PRs, CI history and every other clone. A throwaway clone gives the public a clean history while the private repo keeps its full, honest one.
-- **Q: What does --force-with-lease protect against here?** A: The mirror's history is rewritten each release, so a plain fast-forward push is impossible. A lease on the value just fetched means the push fails if someone or something changed the mirror in between, instead of silently overwriting it.
-
 ## Packaging and deployment (`Dockerfile`, `docker-compose.yml`, `deploy/`)
 1. The image is `python:3.12-slim` running as uid 1000. Its entrypoint runs `alembic upgrade head` and then `exec orbit serve`, so migrations apply before Orbit starts and SIGINT reaches Orbit for a clean shutdown.
 2. Compose runs `orbit` and `pgvector/pgvector:pg16`. Orbit waits for Postgres's healthcheck, publishes only on 127.0.0.1, and has its own `/health` healthcheck.

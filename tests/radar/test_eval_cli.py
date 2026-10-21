@@ -53,7 +53,7 @@ def test_eval_dry_run_on_real_labels_needs_no_db_or_model(monkeypatch):
     result = runner.invoke(app, ["radar", "eval", "--dry-run", "--labels", str(REAL)])
     assert result.exit_code == 0, result.output
     assert "30" in result.output
-    assert "UNVERIFIED" in result.output
+    assert "UNVERIFIED" not in result.output  # the real labels are reviewed: no provisional banner
 
 
 def test_eval_scores_and_saves_summary(monkeypatch, tmp_path, database_url):

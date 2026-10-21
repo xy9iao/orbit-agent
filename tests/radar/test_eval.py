@@ -310,11 +310,11 @@ def test_label_item_is_a_posting_for_build_messages():
 REAL_LABELS = Path(__file__).resolve().parent.parent.parent / "evals" / "radar_labels.yaml"
 
 
-def test_real_label_file_loads_and_stays_unverified():
+def test_real_label_file_loads_and_is_reviewed():
     labels = load_labels(REAL_LABELS)
 
-    assert labels.status == "UNVERIFIED — needs human review"
-    assert is_unverified(labels)
+    assert labels.status.startswith("labels checked against source")
+    assert not is_unverified(labels)
     assert len(labels.items) == 30
     interns = [i for i in labels.items if i.expected.is_internship]
     assert len(interns) >= 12
@@ -325,7 +325,7 @@ def test_real_label_file_loads_and_stays_unverified():
         assert item.id.startswith(item.source + ":") and item.id.count(":") >= 2
 
     text = dry_run(labels)
-    assert UNVERIFIED_BANNER in text
+    assert UNVERIFIED_BANNER not in text
     assert f"Items: 30 ({len(interns)} internship, {30 - len(interns)} non-internship)" in text
 
 

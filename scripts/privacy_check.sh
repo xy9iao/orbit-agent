@@ -4,13 +4,13 @@
 # Terms are read from private-packs/.privacy-terms (git-ignored), one per line; blank lines and lines
 # starting with # are skipped. Matching is literal and case-sensitive. A term with a CJK character
 # matches anywhere (保密 inside 保密词); any other term matches as a whole word only, never inside a
-# longer ASCII word (a term never matches inside an identifier such as PGPASSWORD). The rule lives in scripts/privacy_terms.sh and
-# scripts/publish_public.sh uses it too. Override the file with PRIVACY_TERMS_FILE=path.
+# longer ASCII word (a term never matches inside an identifier such as PGPASSWORD). The rule lives in
+# scripts/privacy_terms.sh. Override the file with PRIVACY_TERMS_FILE=path.
 #
 #   bash scripts/privacy_check.sh             # check the tracked files in the working tree
 #   bash scripts/privacy_check.sh --staged    # check what is staged (the pre-commit hook uses this)
 #   bash scripts/privacy_check.sh --history   # check every commit: messages, paths and diffs
-#                                             # (git log -p --all; scripts/publish_public.sh uses this)
+#                                             # (git log -p --all)
 #
 # Exit 0: no matches (or no terms file, with a note). Exit 1: matches, listed with line numbers.
 set -euo pipefail

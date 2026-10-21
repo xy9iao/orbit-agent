@@ -26,7 +26,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6", "python-dotenv>=1.0", "git-filter-repo>=2.38"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.6", "python-dotenv>=1.0"]
 
 [project.scripts]
 orbit = "orbit.cli.main:app"
