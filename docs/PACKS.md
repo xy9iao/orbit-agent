@@ -34,7 +34,8 @@ Orbit loads packs from two roots:
 ### Keeping personal details out of git
 
 `scripts/privacy_check.sh` fails if any tracked file contains a term from `private-packs/.privacy-terms`
-(one term per line, `#` comments allowed; literal, case-sensitive, whole-word). Put the things that must
+(one term per line, `#` comments allowed; literal and case-sensitive; a term with a CJK character matches
+anywhere, any other term only as a whole word). Put the things that must
 never be published there: diagnoses, exact body numbers, grades.
 
 ```bash

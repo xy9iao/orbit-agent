@@ -2,9 +2,10 @@
 # Fail if any tracked file contains a private term (health details, exact numbers, anything personal).
 #
 # Terms are read from private-packs/.privacy-terms (git-ignored), one per line; blank lines and lines
-# starting with # are skipped. Matching is literal, case-sensitive and whole-word: a term never matches
-# inside a longer ASCII word, and anything other than ASCII letters, digits and _ (CJK characters,
-# punctuation) counts as a word boundary. Override the file with PRIVACY_TERMS_FILE=path.
+# starting with # are skipped. Matching is literal and case-sensitive. A term with a CJK character
+# matches anywhere (保密 inside 保密词); any other term matches as a whole word only, never inside a
+# longer ASCII word (a term never matches inside an identifier such as PGPASSWORD). The rule lives in scripts/privacy_terms.sh and
+# scripts/publish_public.sh uses it too. Override the file with PRIVACY_TERMS_FILE=path.
 #
 #   bash scripts/privacy_check.sh             # check the tracked files in the working tree
 #   bash scripts/privacy_check.sh --staged    # check what is staged (the pre-commit hook uses this)
@@ -15,6 +16,10 @@
 set -euo pipefail
 # Byte-wise matching, so "word character" means the same thing on every machine.
 export LC_ALL=C
+
+script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+# shellcheck source=privacy_terms.sh
+. "$script_dir/privacy_terms.sh"
 
 cd "$(git rev-parse --show-toplevel)"
 terms_file=${PRIVACY_TERMS_FILE:-private-packs/.privacy-terms}
@@ -32,23 +37,34 @@ if [[ ! -f $terms_file ]]; then
   exit 0
 fi
 
-patterns=$(mktemp)
-trap 'rm -f "$patterns"' EXIT
-# Strip CR (a file saved on Windows), comments and blank lines.
-tr -d '\r' <"$terms_file" | grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' >"$patterns" || true
-if [[ ! -s $patterns ]]; then
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+privacy_read_terms "$terms_file" >"$tmp/terms"
+if [[ ! -s $tmp/terms ]]; then
   echo "privacy check: $terms_file has no terms"
   exit 0
 fi
-n_terms=$(wc -l <"$patterns" | tr -d ' ')
+n_terms=$(wc -l <"$tmp/terms" | tr -d ' ')
+privacy_split_terms "$tmp/terms" "$tmp/words" "$tmp/substrings"
 
-# -F literal; -w whole words; -n line numbers; -I (git grep) skips binary files.
+# search [-w] PATTERNS: matching lines, as "file:line:text" (tree, --staged) or "line:text" (--history).
+# -F literal; -n line numbers; -I (git grep) skips binary files; -a reads the log as text.
 # git grep and grep exit 1 when nothing matches.
-case $mode in
-  tree) found=$(git grep -n -I -F -w -f "$patterns" -- . || true) ;;
-  --staged) found=$(git grep --cached -n -I -F -w -f "$patterns" -- . || true) ;;
-  --history) found=$(git log -p --all --format='commit %H%n%B' | grep -n -a -F -w -f "$patterns" || true) ;;
-esac
+search() {
+  local word=() patterns=$1
+  if [[ $1 == -w ]]; then word=(-w); patterns=$2; fi
+  [[ -s $patterns ]] || return 0
+  case $mode in
+    tree) git grep -n -I -F "${word[@]}" -f "$patterns" -- . || true ;;
+    --staged) git grep --cached -n -I -F "${word[@]}" -f "$patterns" -- . || true ;;
+    --history) grep -n -a -F "${word[@]}" -f "$patterns" "$tmp/log" || true ;;
+  esac
+}
+[[ $mode != --history ]] || git log -p --all --format='commit %H%n%B' >"$tmp/log"
+# A line can match both lists; list it once, in file and line order.
+order=(-k1,1 -k2,2n)
+[[ $mode != --history ]] || order=(-k1,1n)
+found=$({ search -w "$tmp/words"; search "$tmp/substrings"; } | sort -t: -u "${order[@]}")
 
 if [[ -n $found ]]; then
   printf '%s\n' "$found"

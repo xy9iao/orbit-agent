@@ -20,9 +20,12 @@ the whole history:
   [`.publicignore`](../.publicignore) (today: `QUESTIONS.md` and `PROGRESS.md`, the agents' work log and
   to-do notes for the owner). Commits that only touched those paths disappear.
 - **Terms**, replaced with `[redacted]` in file contents and commit messages: every line of
-  `private-packs/.privacy-terms`. A term is replaced as a whole word only (not inside a longer ASCII
-  word), the same rule `scripts/privacy_check.sh` uses, so code such as an environment variable name
-  that merely contains a term is not broken.
+  `private-packs/.privacy-terms`, with the rule `scripts/privacy_check.sh` uses too
+  (`scripts/privacy_terms.sh`):
+  - a term containing a CJK character is replaced anywhere, also inside a longer phrase: Chinese has no
+    spaces between words, so a term must also match inside the compound it starts;
+  - any other term is replaced as a whole word only (not inside a longer ASCII word), so code such as
+    an environment variable name that merely contains a term is not broken.
 
 Only what the terms file names is redacted. Words around a term (a description of the same detail in
 other words) stay in old commits; when a dry run shows something you would not publish, add it to the
